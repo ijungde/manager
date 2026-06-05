@@ -42,6 +42,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .cloud-sync{color:var(--accent-h);border-color:var(--accent);}.cloud-sync:hover{background:rgba(59,130,246,.1);}
 .cloud-disc{color:var(--danger);border-color:rgba(239,68,68,.3);}.cloud-disc:hover{background:rgba(239,68,68,.1);}
 
+.sort-btn.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important;}
+.sort-btn:hover{background:rgba(59,130,246,.15)!important;color:var(--accent-h)!important;}
+
 /* HEADER */
 .header{background:linear-gradient(90deg,#070f22,#0d1e3a);border-bottom:1px solid var(--border);padding:0 28px;display:flex;align-items:center;gap:16px;height:62px;position:sticky;top:0;z-index:200;box-shadow:0 2px 20px rgba(0,0,0,.4);}
 .logo{font-size:20px;font-weight:900;letter-spacing:-1px;display:flex;align-items:center;gap:10px;}
@@ -454,8 +457,15 @@ tr:hover td{background:rgba(59,130,246,.05);}
   <div class="stats-row" id="stats-row"></div>
   <div class="card">
     <div class="card-header">
-      <div class="card-title">📋 전체 원생 명단 <span style="font-size:11px;font-weight:400;color:var(--text3)">(수금일순 · 이름/학교/학년/수금일/담당선생님 클릭 수정)</span></div>
-      <input class="form-input" style="width:180px;padding:6px 10px;font-size:12px" id="search-all" placeholder="🔍 이름 검색..." oninput="renderAll()">
+      <div class="card-title">📋 전체 원생 명단</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="display:flex;gap:4px">
+          <button class="sort-btn active" data-sort="payment" onclick="setAllSort('payment')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s">수금일순</button>
+          <button class="sort-btn" data-sort="name" onclick="setAllSort('name')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s">ㄱㄴㄷ순</button>
+          <button class="sort-btn" data-sort="grade" onclick="setAllSort('grade')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s">학년순</button>
+        </div>
+        <input class="form-input" style="width:160px;padding:6px 10px;font-size:12px" id="search-all" placeholder="🔍 이름 검색..." oninput="renderAll()">
+      </div>
     </div>
     <div class="tbl-wrap">
       <table><thead><tr><th>#</th><th>이름 ✏️</th><th>학교 ✏️</th><th>학년 ✏️</th><th>과목 / 담당선생님</th><th>수금일 ✏️</th><th>등록일 ✏️</th></tr></thead>
@@ -465,10 +475,30 @@ tr:hover td{background:rgba(59,130,246,.05);}
 </div>
 
 <!-- ▸ 강사별 -->
-<div class="tab-panel" id="tab-teacher"><div id="teacher-panels"></div></div>
+<div class="tab-panel" id="tab-teacher">
+  <div style="padding:14px 0 10px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;color:var(--text2);font-weight:600">정렬:</span>
+    <select id="teacher-sort" onchange="renderByTeacher()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:5px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer">
+      <option value="name">ㄱㄴㄷ순</option>
+      <option value="grade">학년순</option>
+      <option value="payment">수금일순</option>
+    </select>
+  </div>
+  <div id="teacher-panels"></div>
+</div>
 
 <!-- ▸ 과목별 -->
-<div class="tab-panel" id="tab-subject"><div id="subject-panels"></div></div>
+<div class="tab-panel" id="tab-subject">
+  <div style="padding:14px 0 10px;display:flex;align-items:center;gap:8px">
+    <span style="font-size:12px;color:var(--text2);font-weight:600">정렬:</span>
+    <select id="subject-sort" onchange="renderBySubject()" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:5px 10px;font-size:12px;font-family:'Noto Sans KR',sans-serif;cursor:pointer">
+      <option value="name">ㄱㄴㄷ순</option>
+      <option value="grade">학년순</option>
+      <option value="payment">수금일순</option>
+    </select>
+  </div>
+  <div id="subject-panels"></div>
+</div>
 
 <!-- ▸ 학교별 -->
 <div class="tab-panel" id="tab-school">
@@ -512,6 +542,18 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <span style="font-size:12px;color:var(--text3)">※ 현재 명단에 없는 학생 포함 전체 기록 조회</span>
   </div>
   <div id="archive-panels"></div>
+
+  <!-- 변경이력 -->
+  <div class="card" style="margin-top:16px">
+    <div class="card-header">
+      <div class="card-title">📝 수정 변경이력</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="form-input" id="changelog-search" placeholder="🔍 이름 검색..." style="width:150px;padding:6px 10px;font-size:12px" oninput="renderChangeLog()">
+        <button class="btn btn-ghost btn-sm" onclick="if(confirm('변경이력을 모두 삭제하시겠습니까?')){changeLog=[];save();renderChangeLog();}">🗑 전체삭제</button>
+      </div>
+    </div>
+    <div id="changelog-list" style="padding:8px 0"></div>
+  </div>
 </div>
 
 <!-- ▸ 학년 진급 모달 -->
@@ -590,10 +632,19 @@ tr:hover td{background:rgba(59,130,246,.05);}
 let students     = JSON.parse(localStorage.getItem('ams_students')  || '[]');
 let leaveHistory = JSON.parse(localStorage.getItem('ams_leave')     || '[]');
 let scores       = JSON.parse(localStorage.getItem('ams_scores')    || '{}'); // {studentId: {year: {subject: {exam: score}}}}
+let changeLog    = JSON.parse(localStorage.getItem('ams_changelog') || '[]'); // 변경이력
 let lastYear     = parseInt(localStorage.getItem('ams_year')        || new Date().getFullYear());
 let schoolPending= JSON.parse(localStorage.getItem('ams_pending')   || '[]');
 let nextId       = parseInt(localStorage.getItem('ams_nextid')      || '1');
 let customSubjects = [];
+
+// 변경이력 기록
+function addChangeLog(sid, field, prev, next){
+  const s=students.find(x=>x.id===sid);
+  const name=s?s.name:'(알수없음)';
+  changeLog.unshift({ sid, name, field, prev, next, date: nowStr() });
+  if(changeLog.length>500) changeLog=changeLog.slice(0,500);
+}
 
 const GRADE_ORDER = ['초1','초2','초3','초4','초5','초6','중1','중2','중3','고1','고2','고3'];
 const SUBJ_COLORS = {'국어':'chip-ko','영어':'chip-en','수학':'chip-ma','과학':'chip-sc','사회':'chip-so'};
@@ -603,6 +654,7 @@ function save(){
   localStorage.setItem('ams_students', JSON.stringify(students));
   localStorage.setItem('ams_leave',    JSON.stringify(leaveHistory));
   localStorage.setItem('ams_scores',   JSON.stringify(scores));
+  localStorage.setItem('ams_changelog',JSON.stringify(changeLog));
   localStorage.setItem('ams_year',     String(new Date().getFullYear()));
   localStorage.setItem('ams_pending',  JSON.stringify(schoolPending));
   localStorage.setItem('ams_nextid',   String(nextId));
@@ -794,19 +846,38 @@ function updateStatsRow(){
 }
 
 // ================================================================
-// TAB: 전체 명단 (수금일순 정렬, 수금일 인라인 수정)
 // ================================================================
+// TAB: 전체 명단 (정렬 선택 가능)
+// ================================================================
+let allSortMode = 'payment'; // payment | name | grade
+
 function paymentDay(p){
   if(!p||p==='-') return 999;
   const n=parseInt(p.replace(/[^0-9]/g,''));
   return isNaN(n)?999:n;
 }
+function gradeOrder(g){ return GRADE_ORDER.indexOf(g); }
+
+function sortStudents(list, mode){
+  const arr=[...list];
+  if(mode==='payment') arr.sort((a,b)=>{ const d=paymentDay(a.payment)-paymentDay(b.payment); return d!==0?d:a.name.localeCompare(b.name,'ko'); });
+  else if(mode==='name') arr.sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+  else if(mode==='grade') arr.sort((a,b)=>{ const d=gradeOrder(a.grade)-gradeOrder(b.grade); return d!==0?d:a.name.localeCompare(b.name,'ko'); });
+  return arr;
+}
+
+function setAllSort(mode){
+  allSortMode=mode;
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.toggle('active', b.dataset.sort===mode));
+  renderAll();
+}
+
 function renderAll(){
   updateHeader(); updateStatsRow();
   const q=(document.getElementById('search-all')?.value||'').trim();
   let list=[...students];
   if(q) list=list.filter(s=>s.name.includes(q));
-  list.sort((a,b)=>{ const d=paymentDay(a.payment)-paymentDay(b.payment); return d!==0?d:a.name.localeCompare(b.name,'ko'); });
+  list=sortStudents(list, allSortMode);
   const tbody=document.getElementById('tbody-all');
   if(!list.length){ tbody.innerHTML=`<tr><td colspan="7" class="empty">원생 데이터가 없습니다</td></tr>`; return; }
   tbody.innerHTML=list.map((s,i)=>`<tr>
@@ -874,7 +945,11 @@ function editField(el, sid, field){
   const done=()=>{
     const val=inp.value.trim()||cur;
     const s=students.find(x=>x.id===sid);
-    if(s){ s[field]=val; save(); }
+    if(s){
+      const prev=s[field]||'';
+      if(val!==prev) addChangeLog(sid, field==='name'?'이름':field==='school'?'학교':field, prev, val);
+      s[field]=val; save();
+    }
     const span=document.createElement('span');
     span.className='editable-cell';
     span.title='클릭하여 수정';
@@ -903,6 +978,8 @@ function editGrade(el, sid){
   sel.focus();
   const done=()=>{
     const val=sel.value;
+    const prev=s.grade;
+    if(val!==prev) addChangeLog(sid,'학년',prev,val);
     s.grade=val; save();
     const span=document.createElement('span');
     span.className=`tag ${gradeTag(val)} editable-cell`;
@@ -924,13 +1001,18 @@ function editRegDate(el, sid){
   const inp=document.createElement('input');
   inp.type='date';
   inp.className='inline-edit-input';
-  inp.style.width='130px';
+  inp.style.width='140px';
   inp.value=cur;
   el.replaceWith(inp);
   inp.focus();
+  let saved=false;
   const done=()=>{
+    if(saved) return; saved=true;
     const val=inp.value||cur;
-    s.regDate=val; save();
+    const prev=s.regDate||'';
+    s.regDate=val;
+    if(val!==prev) addChangeLog(sid,'등록일',prev,val);
+    save();
     const span=document.createElement('span');
     span.className='editable-cell tdn';
     span.title='클릭하여 수정';
@@ -938,8 +1020,9 @@ function editRegDate(el, sid){
     span.onclick=function(){ editRegDate(this,sid); };
     inp.replaceWith(span);
   };
-  inp.addEventListener('blur',done);
-  inp.addEventListener('change',done);
+  inp.addEventListener('change', done);
+  inp.addEventListener('blur', ()=>setTimeout(done,100));
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){done();} if(e.key==='Escape'){saved=true;const span=document.createElement('span');span.className='editable-cell tdn';span.title='클릭하여 수정';span.textContent=cur;span.onclick=function(){editRegDate(this,sid);};inp.replaceWith(span);} });
 }
 
 function editPayment(el, sid){
@@ -952,7 +1035,11 @@ function editPayment(el, sid){
   const done=()=>{
     const val=inp.value.trim()||'-';
     const s=students.find(x=>x.id===sid);
-    if(s){ s.payment=val; save(); }
+    if(s){
+      const prev=s.payment||'-';
+      if(val!==prev) addChangeLog(sid,'수금일',prev,val);
+      s.payment=val; save();
+    }
     const span=document.createElement('span');
     span.className='editable-cell';
     span.title='클릭하여 수정';
@@ -1306,6 +1393,7 @@ function renderRHistory(){
 }
 // ================================================================
 function renderByTeacher(){
+  const sortMode=(document.getElementById('teacher-sort')?.value)||'name';
   const groups={};
   students.forEach(s=>{
     const st=s.subjectTeachers||{};
@@ -1319,12 +1407,12 @@ function renderByTeacher(){
   });
   const el=document.getElementById('teacher-panels');
   const keys=Object.keys(groups).sort((a,b)=>a.localeCompare(b,'ko'));
-  if(!keys.length){ el.innerHTML=`<div class="empty">데이터 없음</div>`; return; }
+  if(!keys.length){ el.innerHTML=`<div class="empty">데이터 없음</div>`; return;  }
 
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     ${keys.map(t=>{
       const tid='tch-'+t.replace(/\s/g,'_');
-      const rows=[...groups[t]].sort(korSort);
+      const rows=sortStudents([...groups[t]], sortMode);
       return `<div class="accordion-item">
         <div class="accordion-header" onclick="toggleAccordion('${tid}')">
           <div class="accordion-title">👩‍🏫 ${t}</div>
@@ -1335,16 +1423,16 @@ function renderByTeacher(){
         </div>
         <div class="accordion-body" id="acc-body-${tid}">
           <div style="overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;min-width:480px">
+          <table style="width:100%;border-collapse:collapse;min-width:420px">
             <thead><tr>
-              <th>이름</th><th>학교</th><th>학년</th><th>담당 과목</th><th>수금일 ✏️</th><th>성적</th>
+              <th>이름</th><th>학교</th><th>학년</th><th>담당 과목</th><th>수금일</th><th>성적</th>
             </tr></thead>
             <tbody>${rows.map(s=>`<tr>
               <td><strong>${s.name}</strong></td>
               <td>${s.school}</td>
               <td><span class="tag ${gradeTag(s.grade)}">${s.grade}</span></td>
               <td>${subjectChips(s.subjects||[])}</td>
-              <td><span class="editable-cell" onclick="editPayment(this,${s.id})" title="클릭하여 수정">${fmtPayment(s.payment)}</span></td>
+              <td style="color:var(--text2);font-size:12px">${fmtPayment(s.payment)}</td>
               <td><button class="btn btn-ghost btn-sm" onclick="openScoreModal(${s.id})">📝 성적</button></td>
             </tr>`).join('')}
             <tr class="total-row"><td>합계</td><td colspan="5">${rows.length}명</td></tr>
@@ -1362,6 +1450,7 @@ function renderByTeacher(){
 const SUBJ_ORDER=['국어','영어','수학','사회','과학'];
 
 function renderBySubject(){
+  const sortMode=(document.getElementById('subject-sort')?.value)||'name';
   const groups={};
   students.forEach(s=>{
     (s.subjects||[]).forEach(subj=>{
@@ -1371,7 +1460,6 @@ function renderBySubject(){
     });
   });
   const el=document.getElementById('subject-panels');
-  // 정해진 순서대로, 나머지는 ㄱㄴㄷ순 뒤에 붙임
   const allKeys=Object.keys(groups);
   const ordered=[...SUBJ_ORDER.filter(k=>groups[k]),...allKeys.filter(k=>!SUBJ_ORDER.includes(k)).sort((a,b)=>a.localeCompare(b,'ko'))];
   if(!ordered.length){ el.innerHTML=`<div class="empty">데이터 없음</div>`; return; }
@@ -1379,7 +1467,7 @@ function renderBySubject(){
   el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
     ${ordered.map(k=>{
       const sid2='subj-'+k;
-      const rows=[...groups[k]].sort(korSort);
+      const rows=sortStudents([...groups[k]], sortMode);
       return `<div class="accordion-item">
         <div class="accordion-header" onclick="toggleAccordion('${sid2}')">
           <div class="accordion-title"><span class="chip ${SUBJ_COLORS[k]||'chip-etc'}" style="font-size:13px;padding:3px 10px">${k}</span></div>
@@ -1686,6 +1774,33 @@ function renderArchive(){
     </div>`;
   }).join('');
   if(!el.innerHTML.trim()) el.innerHTML=`<div class="empty">조건에 맞는 기록이 없습니다</div>`;
+  renderChangeLog();
+}
+
+// 변경이력 렌더링
+function renderChangeLog(){
+  const q=(document.getElementById('changelog-search')?.value||'').trim();
+  const el=document.getElementById('changelog-list');
+  if(!el) return;
+  let list=[...changeLog];
+  if(q) list=list.filter(c=>c.name&&c.name.includes(q));
+  if(!list.length){
+    el.innerHTML=`<div style="text-align:center;color:var(--text3);font-size:12px;padding:20px">변경이력이 없습니다</div>`;
+    return;
+  }
+  const fieldLabel={name:'이름',school:'학교',학년:'학년',수금일:'수금일',등록일:'등록일'};
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:500px">
+    <thead><tr>
+      ${['날짜','이름','항목','변경 전','변경 후'].map(h=>`<th style="padding:8px 14px;background:var(--surface2);font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border);text-align:left">${h}</th>`).join('')}
+    </tr></thead>
+    <tbody>${list.map((c,i)=>`<tr style="${i%2===1?'background:rgba(30,52,96,.1)':''}">
+      <td style="padding:7px 14px;border-bottom:1px solid rgba(30,52,96,.3);font-size:11px;color:var(--text3);white-space:nowrap">${c.date||''}</td>
+      <td style="padding:7px 14px;border-bottom:1px solid rgba(30,52,96,.3);font-weight:700;font-size:13px">${c.name||''}</td>
+      <td style="padding:7px 14px;border-bottom:1px solid rgba(30,52,96,.3)"><span style="background:rgba(59,130,246,.15);color:var(--accent-h);font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px">${fieldLabel[c.field]||c.field}</span></td>
+      <td style="padding:7px 14px;border-bottom:1px solid rgba(30,52,96,.3);font-size:12px;color:var(--accent2)">${c.prev||'-'}</td>
+      <td style="padding:7px 14px;border-bottom:1px solid rgba(30,52,96,.3);font-size:12px;color:var(--accent3)">${c.next||'-'}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
 }
 
 // ================================================================
@@ -1764,22 +1879,23 @@ function cloudLoad(url, cb){ jsonpLoad(url, function(e,d){ if(e||!d||!d.ok){ cb(
 function cloudSave(){
   if(!gasUrl) return;
   setCloud('ing','저장 중…');
-  const payload = { students, leaveHistory, scores, nextId };
+  const payload = { students, leaveHistory, scores, changeLog, nextId };
   fetch(gasUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
     .then(function(){ setTimeout(function(){ setCloud('ok','저장 완료 ' + new Date().toLocaleTimeString()); }, 1200); })
     .catch(function(){ setCloud('err','저장 실패'); });
 }
 function applyCloudData(data){
   if(!data) return;
-  if(Array.isArray(data.students))   students     = data.students;
+  if(Array.isArray(data.students))     students     = data.students;
   if(Array.isArray(data.leaveHistory)) leaveHistory = data.leaveHistory;
+  if(Array.isArray(data.changeLog))    changeLog    = data.changeLog;
   if(data.scores && typeof data.scores==='object') scores = data.scores;
   if(data.nextId) nextId = data.nextId;
-  // localStorage도 동기화
-  localStorage.setItem('ams_students', JSON.stringify(students));
-  localStorage.setItem('ams_leave',    JSON.stringify(leaveHistory));
-  localStorage.setItem('ams_scores',   JSON.stringify(scores));
-  localStorage.setItem('ams_nextid',   String(nextId));
+  localStorage.setItem('ams_students',  JSON.stringify(students));
+  localStorage.setItem('ams_leave',     JSON.stringify(leaveHistory));
+  localStorage.setItem('ams_scores',    JSON.stringify(scores));
+  localStorage.setItem('ams_changelog', JSON.stringify(changeLog));
+  localStorage.setItem('ams_nextid',    String(nextId));
 }
 function setCloud(state, msg){
   const dot = document.getElementById('cloudDot');
