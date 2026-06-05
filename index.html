@@ -243,7 +243,7 @@ tr:hover td{background:rgba(59,130,246,.05);}
 .inline-edit-input{background:var(--surface2);border:1px solid var(--accent);border-radius:5px;padding:3px 8px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none;width:110px;}
 
 /* RIGHT PANEL */
-.rpanel{position:fixed;top:62px;right:0;bottom:0;width:360px;z-index:150;display:flex;flex-direction:column;}
+.rpanel{position:fixed;top:62px;right:0;bottom:0;width:360px;z-index:9999;display:flex;flex-direction:column;pointer-events:auto;}
 .rpanel-inner{background:var(--surface);border-left:1px solid var(--border);height:100%;display:flex;flex-direction:column;box-shadow:-4px 0 20px rgba(0,0,0,.3);}
 .rpanel-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface2);flex-shrink:0;}
 .rpanel-body{flex:1;overflow-y:auto;padding:14px 16px;}
@@ -627,15 +627,15 @@ tr:hover td{background:rgba(59,130,246,.05);}
 
 <script>
 // ================================================================
-// DATA
+// DATA (구글 시트가 메인 DB - localStorage는 URL 캐시만)
 // ================================================================
-let students     = JSON.parse(localStorage.getItem('ams_students')  || '[]');
-let leaveHistory = JSON.parse(localStorage.getItem('ams_leave')     || '[]');
-let scores       = JSON.parse(localStorage.getItem('ams_scores')    || '{}'); // {studentId: {year: {subject: {exam: score}}}}
-let changeLog    = JSON.parse(localStorage.getItem('ams_changelog') || '[]'); // 변경이력
-let lastYear     = parseInt(localStorage.getItem('ams_year')        || new Date().getFullYear());
-let schoolPending= JSON.parse(localStorage.getItem('ams_pending')   || '[]');
-let nextId       = parseInt(localStorage.getItem('ams_nextid')      || '1');
+let students     = [];
+let leaveHistory = [];
+let scores       = {};
+let changeLog    = [];
+let lastYear     = new Date().getFullYear();
+let schoolPending= [];
+let nextId       = 1;
 let customSubjects = [];
 
 // 변경이력 기록
@@ -747,17 +747,16 @@ function applyGradeUp(){
     const prevGrade=s.grade;
     s.grade=inp.dataset.new;
     if(inp.value.trim()) s.school=inp.value.trim();
-    // log grade change in student record
     if(!s.gradeHistory) s.gradeHistory=[];
     s.gradeHistory.push({from:prevGrade,to:s.grade,school:s.school,date:nowStr()});
+    cloudSaveStudent(s);
     count++;
   });
-  save(); closeModal('modal-grade'); renderAll();
+  closeModal('modal-grade'); renderAll();
   alert(`✅ ${count}명 진급 처리 완료`);
 }
 
 function applyGradeUpLogic(diff){
-  // auto-apply on year change (연도 바뀔 때)
   const toUpdate=[];
   students.forEach(s=>{
     const idx=GRADE_ORDER.indexOf(s.grade);
@@ -789,13 +788,13 @@ function saveSchoolUpdates(){
     const s=students.find(x=>x.id==inp.dataset.id);
     if(s&&inp.value.trim()){
       if(!s.gradeHistory) s.gradeHistory=[];
-      // update school in latest gradeHistory entry
       const last=s.gradeHistory[s.gradeHistory.length-1];
       if(last) last.school=inp.value.trim();
       s.school=inp.value.trim();
+      cloudSaveStudent(s);
     }
   });
-  schoolPending=[]; save(); closeModal('modal-school'); renderAll();
+  schoolPending=[]; closeModal('modal-school'); renderAll();
 }
 function closeModal(id){ document.getElementById(id).classList.remove('show'); }
 
@@ -891,22 +890,64 @@ function renderAll(){
   </tr>`).join('');
 }
 
-// 전체명단용 — 과목 칩 클릭 시 선생님 수정 가능
+// 전체명단용 — 과목 칩 클릭 시 선생님 수정 가능 + 과목 추가 버튼
 function subjectTeacherChipsEditable(s){
   const subjs=s.subjects||[];
   const st=s.subjectTeachers||{};
-  return `<div class="subject-chips">${subjs.map(subj=>{
-    const t=st[subj]||'';
-    return `<span class="st-chip" style="background:${stBg(subj)};cursor:pointer" title="클릭하여 담당선생님 수정"
-      onclick="editSubjectTeacher(${s.id},'${subj}')">
-      <span class="subj-dot" style="background:${subjColor(subj)};width:6px;height:6px;border-radius:50%"></span>
-      ${subj}${t?`<span class="st-chip-teacher">· ${t}</span>`:`<span style="font-size:10px;color:var(--accent2)"> ✏️</span>`}
-    </span>`;
-  }).join('')}</div>`;
+  return `<div class="subject-chips" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px">
+    ${subjs.map(subj=>{
+      const t=st[subj]||'';
+      return `<span class="st-chip" style="background:${stBg(subj)};cursor:pointer" title="클릭하여 담당선생님 수정"
+        onclick="editSubjectTeacher(${s.id},'${subj}')">
+        <span class="subj-dot" style="background:${subjColor(subj)};width:6px;height:6px;border-radius:50%"></span>
+        ${subj}${t?`<span class="st-chip-teacher">· ${t}</span>`:`<span style="font-size:10px;color:var(--accent2)"> ✏️</span>`}
+      </span>`;
+    }).join('')}
+    <span title="과목 추가" onclick="openAddSubjModal(${s.id})"
+      style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(59,130,246,.2);color:var(--accent-h);font-size:14px;cursor:pointer;border:1px dashed var(--accent);line-height:1">+</span>
+  </div>`;
 }
 
 // 과목별 선생님 수정 모달
-function editSubjectTeacher(sid, subj){
+function openAddSubjModal(sid){
+  const s=students.find(x=>x.id===sid);
+  if(!s) return;
+  document.getElementById('modal-add-subj-title').textContent=`➕ ${s.name} — 과목 추가`;
+  document.getElementById('modal-add-subj-name').value='';
+  document.getElementById('modal-add-subj-teacher').value='';
+  document.getElementById('modal-add-subj-name').dataset.sid=sid;
+  // 기존 과목 체크박스 갱신
+  const existing=s.subjects||[];
+  const wrap=document.getElementById('modal-add-subj-presets');
+  const PRESETS=['국어','영어','수학','과학','사회'];
+  wrap.innerHTML=PRESETS.map(subj=>`
+    <label style="display:inline-flex;align-items:center;gap:5px;background:${stBg(subj)};border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;${existing.includes(subj)?'opacity:.4;pointer-events:none':''}">
+      <input type="radio" name="add-subj-preset" value="${subj}" style="display:none" onchange="document.getElementById('modal-add-subj-name').value=this.value">
+      <span class="subj-dot" style="background:${subjColor(subj)};width:7px;height:7px;border-radius:50%"></span>${subj}
+      ${existing.includes(subj)?'<span style="font-size:10px">(등록됨)</span>':''}
+    </label>`).join('');
+  document.getElementById('modal-add-subj').classList.add('show');
+  setTimeout(()=>document.getElementById('modal-add-subj-name').focus(),100);
+}
+function saveAddSubj(){
+  const nameInp=document.getElementById('modal-add-subj-name');
+  const sid=parseInt(nameInp.dataset.sid);
+  const subj=nameInp.value.trim();
+  const teacher=document.getElementById('modal-add-subj-teacher').value.trim();
+  if(!subj){ alert('과목명을 입력하세요.'); return; }
+  if(!teacher){ alert('담당 선생님을 입력하세요.'); return; }
+  const s=students.find(x=>x.id===sid);
+  if(!s) return;
+  if((s.subjects||[]).includes(subj)){ alert(`이미 [${subj}] 과목이 등록되어 있습니다.`); return; }
+  if(!s.subjects) s.subjects=[];
+  if(!s.subjectTeachers) s.subjectTeachers={};
+  s.subjects.push(subj);
+  s.subjectTeachers[subj]=teacher;
+  addChangeLog(sid,'과목추가','',`${subj}(${teacher})`);
+  cloudSaveStudent(s);
+  closeModal('modal-add-subj');
+  renderAll();
+}
   const s=students.find(x=>x.id===sid);
   if(!s) return;
   const cur=(s.subjectTeachers||{})[subj]||'';
@@ -927,8 +968,8 @@ function saveTeacherEdit(){
   if(s){
     if(!s.subjectTeachers) s.subjectTeachers={};
     s.subjectTeachers[subj]=val;
-    s.teacher=s.subjectTeachers[s.subjects[0]]||val; // 대표 선생님 동기화
-    save();
+    s.teacher=s.subjectTeachers[s.subjects[0]]||val;
+    cloudSaveStudent(s);
   }
   closeModal('modal-teacher-edit');
   renderAll();
@@ -948,7 +989,8 @@ function editField(el, sid, field){
     if(s){
       const prev=s[field]||'';
       if(val!==prev) addChangeLog(sid, field==='name'?'이름':field==='school'?'학교':field, prev, val);
-      s[field]=val; save();
+      s[field]=val;
+      cloudSaveStudent(s);
     }
     const span=document.createElement('span');
     span.className='editable-cell';
@@ -980,7 +1022,8 @@ function editGrade(el, sid){
     const val=sel.value;
     const prev=s.grade;
     if(val!==prev) addChangeLog(sid,'학년',prev,val);
-    s.grade=val; save();
+    s.grade=val;
+    cloudSaveStudent(s);
     const span=document.createElement('span');
     span.className=`tag ${gradeTag(val)} editable-cell`;
     span.title='클릭하여 수정';
@@ -998,31 +1041,17 @@ function editRegDate(el, sid){
   const s=students.find(x=>x.id===sid);
   if(!s) return;
   const cur=s.regDate||'';
-  const inp=document.createElement('input');
-  inp.type='date';
-  inp.className='inline-edit-input';
-  inp.style.width='140px';
-  inp.value=cur;
-  el.replaceWith(inp);
-  inp.focus();
-  let saved=false;
-  const done=()=>{
-    if(saved) return; saved=true;
-    const val=inp.value||cur;
-    const prev=s.regDate||'';
-    s.regDate=val;
-    if(val!==prev) addChangeLog(sid,'등록일',prev,val);
-    save();
-    const span=document.createElement('span');
-    span.className='editable-cell tdn';
-    span.title='클릭하여 수정';
-    span.textContent=val;
-    span.onclick=function(){ editRegDate(this,sid); };
-    inp.replaceWith(span);
-  };
-  inp.addEventListener('change', done);
-  inp.addEventListener('blur', ()=>setTimeout(done,100));
-  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){done();} if(e.key==='Escape'){saved=true;const span=document.createElement('span');span.className='editable-cell tdn';span.title='클릭하여 수정';span.textContent=cur;span.onclick=function(){editRegDate(this,sid);};inp.replaceWith(span);} });
+  // date input을 직접 교체하면 모바일/브라우저에 따라 change 안 뜨는 문제 있으므로
+  // prompt 방식으로 처리
+  const val=prompt('등록일을 입력하세요 (예: 2025-03-05)', cur);
+  if(val===null) return; // 취소
+  const trimmed=val.trim();
+  if(!trimmed) return;
+  const prev=s.regDate||'';
+  s.regDate=trimmed;
+  if(trimmed!==prev) addChangeLog(sid,'등록일',prev,trimmed);
+  cloudSaveStudent(s);
+  el.textContent=trimmed;
 }
 
 function editPayment(el, sid){
@@ -1038,7 +1067,8 @@ function editPayment(el, sid){
     if(s){
       const prev=s.payment||'-';
       if(val!==prev) addChangeLog(sid,'수금일',prev,val);
-      s.payment=val; save();
+      s.payment=val;
+      cloudSaveStudent(s);
     }
     const span=document.createElement('span');
     span.className='editable-cell';
@@ -1062,7 +1092,18 @@ function toggleAccordion(id){
 
 function makeAccordionTable(students_list, hideCol){
   if(!students_list.length) return '<div class="empty">원생 없음</div>';
-  const sorted=[...students_list].sort(korSort);
+  // 학교별: 학년순 → 이름순 / 학년별: 학교이름순 → 이름순
+  const sorted=[...students_list].sort((a,b)=>{
+    if(hideCol==='school'){
+      // 학년별 탭 → 학교이름순 → 이름순
+      const sc=a.school.localeCompare(b.school,'ko');
+      return sc!==0?sc:a.name.localeCompare(b.name,'ko');
+    } else {
+      // 학교별 탭 → 학년순 → 이름순
+      const go=gradeOrder(a.grade)-gradeOrder(b.grade);
+      return go!==0?go:a.name.localeCompare(b.name,'ko');
+    }
+  });
   const showSchool=hideCol!=='school';
   const showGrade=hideCol!=='grade';
   const minW=showSchool&&showGrade?560:showSchool?500:440;
@@ -1265,13 +1306,21 @@ function addStudentPanel(){
   const subjects=[...checked,...rCustomSubjects].filter(Boolean);
   if(!school||!grade||!name){ alert('학교·학년·이름은 필수입니다.'); return; }
   if(!subjects.length){ alert('수강 과목을 1개 이상 선택하세요.'); return; }
+  // 동일 이름 체크
+  const dup=students.find(s=>s.name===name);
+  if(dup){
+    const ok=confirm(`⚠️ 이미 "${name}" 학생이 등록되어 있습니다!\n(${dup.school} · ${dup.grade})\n\n동명이인이면 확인을, 취소하면 기존 학생을 수정하세요.`);
+    if(!ok) return;
+  }
   const subjectTeachers={};
   document.querySelectorAll('#rsubj-teacher-fields .st-input').forEach(inp=>{ const t=inp.value.trim(); if(t) subjectTeachers[inp.dataset.subj]=t; });
   const missing=subjects.find(s=>!subjectTeachers[s]);
   if(missing){ alert(`[${missing}] 과목의 담당 선생님을 입력하세요.`); return; }
   const teacher=subjectTeachers[subjects[0]]||'';
-  students.push({id:nextId++,school,grade,name,teacher,subjects,subjectTeachers,payment,regDate:nowStr()});
-  save(); clearRNewForm(); renderRNewMonth(); updateHeader(); renderAll();
+  const newStudent={id:nextId++,school,grade,name,teacher,subjects,subjectTeachers,payment,regDate:nowStr(),gradeHistory:[]};
+  students.push(newStudent);
+  cloudSaveStudent(newStudent);
+  clearRNewForm(); renderRNewMonth(); updateHeader(); renderAll();
   alert(`✅ ${name} 원생 등록 완료`);
 }
 function clearRNewForm(){
@@ -1347,17 +1396,25 @@ function processRLeave(){
   // subjectTeachers 스냅샷 저장 (복원 시 사용)
   const stSnapshot={};
   checkedSubjs.forEach(sub=>{ stSnapshot[sub]=(s.subjectTeachers||{})[sub]||''; });
-  leaveHistory.push({
-    id:s.id,name:s.name,school:s.school,grade:s.grade,teacher:s.teacher,
+  const leaveEntry={
+    id:nextLeaveId++,
+    studentId:s.id, id:s.id,name:s.name,school:s.school,grade:s.grade,teacher:s.teacher,
     leaveSubjects:checkedSubjs,allSubjects:[...(s.subjects||[])],
-    subjectTeachers:stSnapshot,  // ← 선생님 정보 보존
+    subjectTeachers:stSnapshot,
     payment:s.payment||'',regDate:s.regDate||'',
     reason,note,leaveDate:nowStr()
-  });
+  };
+  leaveHistory.push(leaveEntry);
+  cloudSaveLeave(leaveEntry);
   s.subjects=(s.subjects||[]).filter(sub=>!checkedSubjs.includes(sub));
   if(s.subjectTeachers) checkedSubjs.forEach(sub=>{ delete s.subjectTeachers[sub]; });
-  if(!s.subjects.length) students.splice(idx,1);
-  save(); clearRLeaveForm(); renderRLeaveMonth(); updateHeader(); renderAll();
+  if(!s.subjects.length){
+    students.splice(idx,1);
+    cloudDeleteStudent(s.id);
+  } else {
+    cloudSaveStudent(s);
+  }
+  clearRLeaveForm(); renderRLeaveMonth(); updateHeader(); renderAll();
   alert(`⏸️ ${s.name}의 [${checkedSubjs.join(', ')}] 휴회 처리 완료`);
 }
 function renderRLeaveMonth(){
@@ -1511,7 +1568,8 @@ function cancelNewStudent(id){
   if(!s) return;
   if(!s.regDate||!s.regDate.startsWith(thisYM())){ alert('당월 등록한 원생만 취소할 수 있습니다.'); return; }
   students=students.filter(x=>x.id!==id);
-  save(); renderRNewMonth(); updateHeader(); renderAll();
+  cloudDeleteStudent(id);
+  renderRNewMonth(); updateHeader(); renderAll();
 }
 
 // processLeave → 우측 패널 processRLeave로 통일 (구 DOM 없음)
@@ -1540,7 +1598,19 @@ function cancelLeave(idx){
     });
   }
   leaveHistory.splice(idx,1);
-  save();
+  cloudDeleteLeave(l.id);
+  if(existing){
+    cloudSaveStudent(existing);
+  } else {
+    const restored={
+      id:l.id, school:l.school, grade:l.grade, name:l.name, teacher:l.teacher,
+      subjects:l.leaveSubjects,
+      subjectTeachers:{...stSnapshot},
+      payment:l.payment||'', regDate:l.regDate||'',
+      gradeHistory:[]
+    };
+    cloudSaveStudent(restored);
+  }
   renderRLeaveMonth();
   renderRHistory();
   updateHeader();
@@ -1559,7 +1629,7 @@ function setScore(sid,year,subj,exam,val){
   if(!scores[sid][year]) scores[sid][year]={};
   if(!scores[sid][year][subj]) scores[sid][year][subj]={};
   scores[sid][year][subj][exam]=val;
-  save();
+  cloudSaveScore(sid,year,subj,exam,val);
 }
 function scoreColor(v){ const n=parseInt(v); if(isNaN(n)) return ''; if(n>=90) return 'score-high'; if(n>=70) return 'score-mid'; return 'score-low'; }
 
@@ -1769,7 +1839,26 @@ function renderArchive(){
       </div>
       <div style="padding:14px 16px">
         ${ghRows}${leaveRows}${scoreRows}
-        ${!hasLeaves&&!hasScores&&!m.gradeHistory.length?'<div style="color:var(--text3);font-size:12px">기록 없음</div>':''}
+        ${(()=>{
+          const myLog=changeLog.filter(c=>c.sid===id);
+          if(!myLog.length) return '';
+          const fieldLabel={name:'이름',school:'학교',학년:'학년',수금일:'수금일',등록일:'등록일'};
+          return `<div style="margin-top:${(ghRows||leaveRows||scoreRows)?'12px':'0'}">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📝 변경이력 (${myLog.length}건)</div>
+            <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:360px">
+              <thead><tr>
+                ${['날짜','항목','변경 전','변경 후'].map(h=>`<th style="padding:5px 10px;background:var(--surface3);color:var(--text3);font-size:10px;font-weight:700;border-bottom:1px solid var(--border);text-align:left">${h}</th>`).join('')}
+              </tr></thead>
+              <tbody>${myLog.map((c,i)=>`<tr style="${i%2===1?'background:rgba(30,52,96,.1)':''}">
+                <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25);color:var(--text3);white-space:nowrap">${c.date||''}</td>
+                <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25)"><span style="background:rgba(59,130,246,.15);color:var(--accent-h);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">${fieldLabel[c.field]||c.field}</span></td>
+                <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25);color:var(--accent2)">${c.prev||'-'}</td>
+                <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25);color:var(--accent3)">${c.next||'-'}</td>
+              </tr>`).join('')}</tbody>
+            </table></div>
+          </div>`;
+        })()}
+        ${!hasLeaves&&!hasScores&&!m.gradeHistory.length&&!changeLog.find(c=>c.sid===id)?'<div style="color:var(--text3);font-size:12px">기록 없음</div>':''}
       </div>
     </div>`;
   }).join('');
@@ -1861,81 +1950,144 @@ function addSampleData(){
 }
 
 // ================================================================
-// 구글 시트 연동 (GAS)
+// 구글 시트 연동 v2 (시트 기반 메인 DB)
 // ================================================================
-const GAS_LS = 'ams_gas_url_v1';
+const GAS_LS = 'ams_gas_url_v2';
 let gasUrl = '';
+let nextLeaveId = 1;
+let nextLogId   = 1;
 
+// ── JSONP (GET) ──
 function jsonpLoad(url, cb){
-  const nm = '_ams_cb_' + Date.now();
-  window[nm] = function(d){ delete window[nm]; const s=document.getElementById(nm); if(s)s.remove(); cb(null,d); };
-  const sc = document.createElement('script'); sc.id = nm;
-  sc.src = url + (url.indexOf('?')>=0?'&':'?') + 'callback=' + nm + '&_=' + Date.now();
-  sc.onerror = function(){ delete window[nm]; sc.remove(); cb('error',null); };
+  const nm='_ams_cb_'+Date.now();
+  window[nm]=function(d){ delete window[nm]; const s=document.getElementById(nm); if(s)s.remove(); cb(null,d); };
+  const sc=document.createElement('script'); sc.id=nm;
+  sc.src=url+(url.indexOf('?')>=0?'&':'?')+'callback='+nm+'&_='+Date.now();
+  sc.onerror=function(){ delete window[nm]; sc.remove(); cb('error',null); };
   document.head.appendChild(sc);
-  setTimeout(function(){ if(window[nm]){ delete window[nm]; const s=document.getElementById(nm); if(s)s.remove(); cb('timeout',null); } }, 8000);
+  setTimeout(function(){ if(window[nm]){ delete window[nm]; const s=document.getElementById(nm); if(s)s.remove(); cb('timeout',null); } },10000);
 }
-function cloudLoad(url, cb){ jsonpLoad(url, function(e,d){ if(e||!d||!d.ok){ cb(false,null); } else { cb(true,d.data); } }); }
-function cloudSave(){
-  if(!gasUrl) return;
-  setCloud('ing','저장 중…');
-  const payload = { students, leaveHistory, scores, changeLog, nextId };
-  fetch(gasUrl, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
-    .then(function(){ setTimeout(function(){ setCloud('ok','저장 완료 ' + new Date().toLocaleTimeString()); }, 1200); })
-    .catch(function(){ setCloud('err','저장 실패'); });
+function cloudLoad(cb){ jsonpLoad(gasUrl, function(e,d){ cb(!e&&d&&d.ok, d?d.data:null); }); }
+
+// ── POST (액션 기반) ──
+function gasPost(payload, cb){
+  if(!gasUrl){ if(cb) cb(false); return; }
+  fetch(gasUrl,{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:JSON.stringify(payload) })
+    .then(function(){ if(cb) cb(true); })
+    .catch(function(){ if(cb) cb(false); });
 }
+
+// ── 상태 표시 ──
+function setCloud(state, msg){
+  const dot=document.getElementById('cloudDot');
+  const status=document.getElementById('cloudStatus');
+  if(!dot||!status) return;
+  dot.className='cloud-dot'+(state==='ing'?' ing':state==='err'?' err':'');
+  status.textContent=msg;
+}
+
+// ── 데이터 적용 ──
 function applyCloudData(data){
   if(!data) return;
   if(Array.isArray(data.students))     students     = data.students;
   if(Array.isArray(data.leaveHistory)) leaveHistory = data.leaveHistory;
   if(Array.isArray(data.changeLog))    changeLog    = data.changeLog;
   if(data.scores && typeof data.scores==='object') scores = data.scores;
-  if(data.nextId) nextId = data.nextId;
-  localStorage.setItem('ams_students',  JSON.stringify(students));
-  localStorage.setItem('ams_leave',     JSON.stringify(leaveHistory));
-  localStorage.setItem('ams_scores',    JSON.stringify(scores));
-  localStorage.setItem('ams_changelog', JSON.stringify(changeLog));
-  localStorage.setItem('ams_nextid',    String(nextId));
+  if(data.nextId)      nextId      = parseInt(data.nextId);
+  if(data.nextLeaveId) nextLeaveId = parseInt(data.nextLeaveId);
+  if(data.nextLogId)   nextLogId   = parseInt(data.nextLogId);
+  // localStorage는 캐시용으로만 (용량 초과 방지 - 학생명단만 저장)
+  try {
+    localStorage.setItem('ams_gas_url_v2', gasUrl);
+    localStorage.setItem('ams_nextid', String(nextId));
+  } catch(e){}
 }
-function setCloud(state, msg){
-  const dot = document.getElementById('cloudDot');
-  const status = document.getElementById('cloudStatus');
-  if(!dot||!status) return;
-  dot.className = 'cloud-dot' + (state==='ing'?' ing':state==='err'?' err':'');
-  status.textContent = msg;
+
+// ── 학생 저장 (추가/수정) ──
+function save(){
+  // localStorage는 더 이상 메인 저장소로 쓰지 않음
+  // 각 액션별로 gasPost 호출
 }
+function cloudSaveStudent(s){
+  if(!gasUrl) return;
+  setCloud('ing','저장 중…');
+  gasPost({ action:'saveStudent', data:s }, function(ok){
+    setCloud(ok?'ok':'err', ok?('저장됨 '+new Date().toLocaleTimeString()):'저장 실패');
+  });
+}
+function cloudDeleteStudent(id){
+  if(!gasUrl) return;
+  gasPost({ action:'deleteStudent', id:id }, null);
+}
+function cloudSaveScore(sid, year, subj, exam, val){
+  if(!gasUrl) return;
+  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }}, null);
+}
+function cloudSaveLeave(leaveData){
+  if(!gasUrl) return;
+  gasPost({ action:'saveLeave', data:leaveData }, null);
+}
+function cloudDeleteLeave(id){
+  if(!gasUrl) return;
+  gasPost({ action:'deleteLeave', id:id }, null);
+}
+function cloudSaveLog(logData){
+  if(!gasUrl) return;
+  gasPost({ action:'saveChangeLog', data:logData }, null);
+}
+
+// ── 변경이력 기록 (시트에도 저장) ──
+function addChangeLog(sid, field, prev, next){
+  const s=students.find(x=>x.id===sid);
+  const name=s?s.name:'(알수없음)';
+  const entry={ id:nextLogId++, sid, name, field, prev, next, date:nowStr() };
+  changeLog.unshift(entry);
+  if(changeLog.length>1000) changeLog=changeLog.slice(0,1000);
+  cloudSaveLog(entry);
+}
+
+// ── 잠금 해제 ──
 function tryUnlock(){
-  const url = document.getElementById('lockInp').value.trim();
+  const url=document.getElementById('lockInp').value.trim();
   if(!url) return;
-  const btn = document.getElementById('lockBtn'); btn.disabled=true; btn.textContent='확인 중…';
+  const btn=document.getElementById('lockBtn'); btn.disabled=true; btn.textContent='확인 중…';
   document.getElementById('lockErr').style.display='none';
-  cloudLoad(url, function(ok, data){
+  gasUrl=url;
+  cloudLoad(function(ok, data){
     btn.disabled=false; btn.textContent='접속하기';
     if(ok){
-      gasUrl = url; try{ localStorage.setItem(GAS_LS, url); }catch(e){}
+      try{ localStorage.setItem(GAS_LS,url); }catch(e){}
       applyCloudData(data);
-      document.getElementById('lockScreen').style.display='none';
+      const ls=document.getElementById('lockScreen');
+      ls.style.display='none'; ls.style.pointerEvents='none';
       document.getElementById('mainApp').style.display='block';
-      setCloud('ok','구글 시트 연결됨');
+      setCloud('ok','구글 시트 연결됨 ('+students.length+'명)');
       renderAll();
     } else {
+      gasUrl='';
       document.getElementById('lockErr').style.display='block';
     }
   });
 }
+
+// ── 동기화 ──
 function doSync(){
   if(!gasUrl) return;
   setCloud('ing','동기화 중…');
-  cloudLoad(gasUrl, function(ok, data){
-    if(ok && data){ applyCloudData(data); renderAll(); setCloud('ok','동기화 완료 '+new Date().toLocaleTimeString()); }
+  cloudLoad(function(ok, data){
+    if(ok&&data){ applyCloudData(data); renderAll(); setCloud('ok','동기화 완료 '+new Date().toLocaleTimeString()); }
     else { setCloud('err','동기화 실패'); }
   });
 }
+
+// ── 연결 해제 ──
 function doDisconn(){
   if(!confirm('연결을 해제합니다. 다시 접속하려면 URL이 필요합니다.')) return;
   gasUrl=''; try{ localStorage.removeItem(GAS_LS); }catch(e){}
+  students=[]; leaveHistory=[]; scores={}; changeLog=[];
   document.getElementById('mainApp').style.display='none';
   document.getElementById('lockScreen').style.display='flex';
+  document.getElementById('lockScreen').style.pointerEvents='auto';
   document.getElementById('lockInp').value='';
   document.getElementById('lockBtn').disabled=true;
 }
@@ -1944,17 +2096,16 @@ function initYearSelects(){
   const cur=new Date().getFullYear();
   ['stat-year','score-year'].forEach(id=>{
     const sel=document.getElementById(id);
+    if(!sel) return;
+    sel.innerHTML='';
     for(let y=cur;y>=cur-3;y--) sel.innerHTML+=`<option value="${y}" ${y===cur?'selected':''}>${y}</option>`;
   });
 }
 
 function init(){
-  checkYearChange();
-  addSampleData();
   initYearSelects();
   initTabDrag();
-
-  // 저장된 GAS URL로 자동 로그인 시도
+  // 저장된 GAS URL로 자동 로그인
   try {
     const saved = localStorage.getItem(GAS_LS);
     if(saved){
@@ -1966,6 +2117,35 @@ function init(){
 }
 init();
 </script>
+<!-- 과목 추가 모달 -->
+<div class="modal-overlay" id="modal-add-subj">
+  <div class="modal" style="width:400px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-add-subj-title">과목 추가</div>
+      <button class="modal-close" onclick="closeModal('modal-add-subj')">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:14px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px">기본 과목 선택 (클릭 시 자동 입력)</div>
+        <div id="modal-add-subj-presets" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">과목명 <span style="color:var(--accent2)">*</span></label>
+        <input class="form-input" id="modal-add-subj-name" placeholder="과목명 입력 또는 위에서 선택">
+      </div>
+      <div class="form-group">
+        <label class="form-label">담당 선생님 <span style="color:var(--accent2)">*</span></label>
+        <input class="form-input" id="modal-add-subj-teacher" placeholder="선생님 이름"
+          onkeydown="if(event.key==='Enter') saveAddSubj()">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="saveAddSubj()">➕ 추가</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-subj')">취소</button>
+    </div>
+  </div>
+</div>
+
 <!-- 선생님 수정 모달 -->
 <div class="modal-overlay" id="modal-teacher-edit">
   <div class="modal" style="width:380px">
