@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoachingManager — 지점 로그인</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#060d1f;--surface:#0d1a35;--surface2:#112040;--border:#1e3460;--border2:#254272;
+  --accent:#3b82f6;--accent-h:#60a5fa;--accent2:#f87171;--accent3:#34d399;--accent4:#fbbf24;
+  --text:#e2eaf8;--text2:#8ba4cc;--text3:#4d6a9a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── TOP BAR ── */
+.topbar{background:linear-gradient(90deg,#070f22,#0d1e3a);border-bottom:1px solid var(--border);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-size:18px;font-weight:900;letter-spacing:-.5px;display:flex;align-items:center;gap:10px;}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.logo em{color:var(--accent-h);font-style:normal;}
+.topbar-right{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text3);}
+.auth-badge{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 14px;font-size:12px;display:flex;align-items:center;gap:6px;}
+.auth-badge.loggedin{border-color:var(--accent3);color:var(--accent3);}
+.auth-badge.readonly{border-color:var(--border);color:var(--text3);}
+
+/* ── MAIN LAYOUT ── */
+.layout{display:flex;flex:1;min-height:0;}
+.sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar-section{padding:16px;}
+.sidebar-title{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+.branch-list{display:flex;flex-direction:column;gap:4px;}
+.branch-item{padding:9px 12px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;transition:background .15s;border:1px solid transparent;}
+.branch-item:hover{background:rgba(59,130,246,.08);}
+.branch-item.active{background:rgba(59,130,246,.15);border-color:var(--border2);}
+.branch-item.active .bi-name{color:var(--accent-h);}
+.bi-name{font-size:13px;font-weight:600;color:var(--text2);}
+.bi-count{font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+.bi-region{font-size:10px;color:var(--text3);margin-top:2px;}
+.sidebar-sep{height:1px;background:var(--border);margin:8px 0;}
+
+/* LOGIN PANEL */
+.login-panel{padding:16px;border-top:1px solid var(--border);margin-top:auto;}
+.login-panel-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.pin-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:4px;text-align:center;outline:none;transition:border-color .2s;}
+.pin-input:focus{border-color:var(--accent);}
+.pin-hint{font-size:10px;color:var(--text3);text-align:center;margin-top:5px;}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;margin-top:8px;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:var(--accent-h);}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);}
+.btn-danger-ghost{background:transparent;color:var(--accent2);border:1px solid rgba(248,113,113,.3);font-size:12px;margin-top:6px;}
+.btn-danger-ghost:hover{background:rgba(248,113,113,.1);}
+
+/* CONTENT */
+.content{flex:1;display:flex;flex-direction:column;min-width:0;}
+
+/* HQ DASHBOARD */
+.hq-dash{padding:24px;flex:1;overflow-y:auto;}
+.page-title{font-size:20px;font-weight:900;margin-bottom:6px;}
+.page-sub{font-size:13px;color:var(--text3);margin-bottom:24px;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-bottom:28px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;}
+.stat-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.stat-value{font-size:26px;font-weight:900;font-family:'JetBrains Mono',monospace;}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+
+/* BRANCH TABLE */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.card-header{padding:13px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,var(--surface2),var(--surface));}
+.card-title{font-size:13px;font-weight:700;}
+table{width:100%;border-collapse:collapse;}
+th{background:var(--surface2);padding:9px 14px;text-align:left;font-size:11px;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:9px 14px;border-bottom:1px solid rgba(30,52,96,.5);font-size:13px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(59,130,246,.04);}
+.tdn{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2);}
+
+/* TREND BARS */
+.trend-bar-wrap{display:flex;align-items:center;gap:8px;}
+.trend-bar{height:6px;border-radius:3px;background:var(--accent);opacity:.7;min-width:2px;transition:width .3s;}
+.trend-neg{background:var(--accent2);}
+
+/* GRADE/REGION CHARTS */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+.bar-chart{display:flex;flex-direction:column;gap:7px;padding:16px 18px;}
+.bar-row{display:flex;align-items:center;gap:10px;}
+.bar-label{font-size:12px;color:var(--text2);width:52px;flex-shrink:0;text-align:right;}
+.bar-track{flex:1;height:20px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:700;color:#fff;transition:width .4s;}
+.bar-num{font-size:11px;color:var(--text2);width:30px;text-align:right;font-family:'JetBrains Mono',monospace;}
+
+/* READONLY OVERLAY */
+.readonly-banner{background:rgba(59,130,246,.07);border-bottom:1px solid rgba(59,130,246,.2);padding:8px 24px;font-size:12px;color:var(--text3);display:flex;align-items:center;gap:8px;}
+
+/* BRANCH APP FRAME */
+.branch-frame-wrap{flex:1;display:flex;flex-direction:column;}
+.branch-toolbar{padding:8px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:12px;flex-shrink:0;}
+.branch-frame{flex:1;border:none;width:100%;background:var(--bg);}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:400;align-items:center;justify-content:center;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:14px;width:400px;max-width:95vw;box-shadow:0 24px 80px rgba(0,0,0,.5);}
+.modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.modal-title{font-size:15px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:20px;}
+.modal-body{padding:18px 22px;}
+.modal-footer{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:9px;justify-content:flex-end;}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+.form-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.form-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'Noto Sans KR',sans-serif;font-size:13px;outline:none;transition:border-color .18s;}
+.form-input:focus{border-color:var(--accent);}
+.alert{border-radius:9px;padding:11px 15px;margin-bottom:12px;display:flex;gap:9px;font-size:13px;line-height:1.6;}
+.alert-warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b;}
+.alert-err{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#f87171;}
+.alert-ok{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);color:#34d399;}
+
+/* BADGE */
+.badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;line-height:1.7;}
+.bb{background:rgba(59,130,246,.18);color:var(--accent-h);}
+.bg{background:rgba(52,211,153,.18);color:#34d399;}
+.br{background:rgba(248,113,113,.18);color:#f87171;}
+.by{background:rgba(251,191,36,.18);color:#fbbf24;}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+@media(max-width:768px){
+  .sidebar{width:220px;}
+  .chart-grid{grid-template-columns:1fr;}
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+}
+@media(max-width:560px){
+  .layout{flex-direction:column;}
+  .sidebar{width:100%;max-height:200px;overflow-y:auto;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-icon">🎯</div>
+    <span>Coaching<em>Manager</em></span>
+  </div>
+  <div class="topbar-right">
+    <div class="auth-badge readonly" id="auth-badge">🔓 열람 전용</div>
+    <span id="auth-branch-name" style="font-weight:600;color:var(--text2)"></span>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">📍 지점 선택</div>
+      <div class="branch-list" id="branch-list"></div>
+    </div>
+
+    <!-- LOGIN PANEL -->
+    <div class="login-panel" id="login-panel">
+      <div class="login-panel-title" id="login-title">🔐 지점 수정 로그인</div>
+      <input class="pin-input" id="pin-input" type="password" maxlength="6" placeholder="● ● ● ●" oninput="onPinInput()">
+      <div class="pin-hint" id="pin-hint">선택한 지점의 PIN 코드를 입력하세요</div>
+      <button class="btn btn-primary" onclick="tryLogin()">로그인</button>
+      <div id="logout-wrap" style="display:none">
+        <button class="btn btn-danger-ghost" onclick="doLogout()">🚪 로그아웃</button>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">🏢 본사 통합 대시보드</div>
+        <button class="btn btn-ghost" style="font-size:12px" onclick="showHQLogin()">본사 관리자 로그인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content" id="main-content">
+    <!-- HQ 대시보드 (기본) -->
+    <div class="hq-dash" id="hq-dash">
+      <div id="hq-readonly-banner" class="readonly-banner" style="margin:-24px -24px 24px;padding:10px 24px">
+        👁️ 열람 전용 모드 — 수정하려면 지점을 선택하고 PIN을 입력하세요
+      </div>
+      <div class="page-title">📊 전체 지점 통합 현황</div>
+      <div class="page-sub" id="hq-date"></div>
+
+      <div class="stats-grid" id="hq-stats"></div>
+
+      <div class="chart-grid">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🎒 학년별 원생 분포</div></div>
+          <div class="bar-chart" id="chart-grade"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">📍 지역별 원생 수</div></div>
+          <div class="bar-chart" id="chart-region"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🏫 지점별 현황</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="branch-search" style="background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 10px;color:var(--text);font-size:12px;outline:none;width:160px" placeholder="🔍 지점 검색..." oninput="renderBranchTable()">
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table><thead><tr>
+            <th>지점명</th><th>지역</th><th>전체 원생</th><th>이번달 신규</th><th>이번달 휴회</th><th>강사 수</th><th>추세 (6개월)</th>
+          </tr></thead>
+          <tbody id="branch-table-body"></tbody></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">📈 월별 신규/휴회 추이 (전체 지점)</div></div>
+        <div style="padding:16px 18px">
+          <div id="monthly-trend-chart" style="display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:100px;margin-bottom:8px"></div>
+          <div style="display:flex;gap:18px;font-size:12px;color:var(--text2)">
+            <span><span style="display:inline-block;width:9px;height:9px;background:var(--accent);border-radius:2px;margin-right:4px"></span>신규</span>
+            <span><span style="display:inline-block;width:9px;height:9px;background:var(--accent2);border-radius:2px;margin-right:4px"></span>휴회</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 지점 앱 iframe -->
+    <div class="branch-frame-wrap" id="branch-frame-wrap" style="display:none">
+      <div class="branch-toolbar" id="branch-toolbar">
+        <span id="branch-frame-title" style="font-weight:700;color:var(--text2)"></span>
+        <span id="branch-frame-mode" class="badge bb">열람 전용</span>
+        <button onclick="backToHQ()" style="margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 12px;color:var(--text2);font-size:12px;cursor:pointer">← 대시보드로</button>
+      </div>
+      <iframe id="branch-iframe" class="branch-frame" src="about:blank"></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- HQ LOGIN MODAL -->
+<div class="modal-overlay" id="modal-hq-login">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">🏢 본사 관리자 로그인</div><button class="modal-close" onclick="closeModal('modal-hq-login')">✕</button></div>
+    <div class="modal-body">
+      <div class="alert alert-warn"><span>⚠️</span><div>본사 마스터 PIN은 별도 관리되어야 합니다. 외부 공유 금지.</div></div>
+      <div class="form-group">
+        <label class="form-label">마스터 PIN</label>
+        <input class="form-input" id="hq-pin" type="password" placeholder="마스터 PIN 입력" style="letter-spacing:4px;font-family:'JetBrains Mono',monospace" onkeydown="if(event.key==='Enter')tryHQLogin()">
+      </div>
+      <div id="hq-login-err" style="display:none" class="alert alert-err"><span>✕</span><div>PIN이 올바르지 않습니다.</div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="tryHQLogin()">로그인</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-hq-login')">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD BRANCH MODAL -->
+<div class="modal-overlay" id="modal-add-branch">
+  <div class="modal" style="width:460px">
+    <div class="modal-header"><div class="modal-title">🏫 지점 추가</div><button class="modal-close" onclick="closeModal('modal-add-branch')">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label class="form-label">지점명</label><input class="form-input" id="ab-name" placeholder="예) 강남점"></div>
+      <div class="form-group"><label class="form-label">지역</label><input class="form-input" id="ab-region" placeholder="예) 서울 강남구"></div>
+      <div class="form-group"><label class="form-label">지점 PIN (4~6자리)</label>
+        <input class="form-input" id="ab-pin" type="password" placeholder="지점 전용 PIN" style="letter-spacing:4px;font-family:'JetBrains Mono',monospace">
+        <span style="font-size:11px;color:var(--text3)">지점 담당자만 알고 있어야 합니다</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="addBranch()">추가</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-branch')">취소</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// CONFIG — 실제 운영 시 서버에서 관리 (PIN은 해시 처리 필요)
+// ================================================================
+const HQ_PIN = '000000'; // 본사 마스터 PIN (실제 배포 시 변경 필수)
+const APP_FILE = 'academy_manager.html'; // 지점 앱 파일명
+
+// ================================================================
+// DATA STORE
+// ================================================================
+let branches = JSON.parse(localStorage.getItem('cm_branches') || 'null');
+if (!branches) branches = getDefaultBranches();
+
+let session = JSON.parse(sessionStorage.getItem('cm_session') || 'null');
+// session = { type: 'branch'|'hq', branchId, branchName, expiresAt }
+
+function saveBranches(){ localStorage.setItem('cm_branches', JSON.stringify(branches)); }
+
+function getDefaultBranches(){
+  return [
+    { id:'B001', name:'강남점',   region:'서울 강남구', pin:hashPin('1234'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B002', name:'분당점',   region:'경기 성남시', pin:hashPin('2345'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B003', name:'목동점',   region:'서울 양천구', pin:hashPin('3456'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B004', name:'수원점',   region:'경기 수원시', pin:hashPin('4567'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B005', name:'인천점',   region:'인천 남동구', pin:hashPin('5678'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+  ];
+}
+
+// 단순 해시 (실제 배포 시 bcrypt 등으로 교체)
+function hashPin(pin){
+  let h=0;
+  for(let i=0;i<pin.length;i++) h=(Math.imul(31,h)+pin.charCodeAt(i))|0;
+  return String(h>>>0);
+}
+function checkPin(input, stored){ return hashPin(input)===stored; }
+
+// ================================================================
+// SESSION
+// ================================================================
+function isLoggedIn(){ return session && session.expiresAt > Date.now(); }
+function isHQ(){ return isLoggedIn() && session.type==='hq'; }
+function isBranch(bid){ return isLoggedIn() && session.type==='branch' && session.branchId===bid; }
+function canEdit(bid){ return isHQ() || isBranch(bid); }
+
+function setSession(type, branch){
+  session = {
+    type, branchId: branch?.id||null, branchName: branch?.name||'본사',
+    expiresAt: Date.now() + 8*60*60*1000 // 8시간
+  };
+  sessionStorage.setItem('cm_session', JSON.stringify(session));
+}
+function clearSession(){ session=null; sessionStorage.removeItem('cm_session'); }
+
+// ================================================================
+// AUTH UI
+// ================================================================
+let selectedBranchId = null;
+
+function tryLogin(){
+  const pin = document.getElementById('pin-input').value.trim();
+  if(!pin){ alert('PIN을 입력하세요.'); return; }
+  if(!selectedBranchId){ alert('지점을 먼저 선택하세요.'); return; }
+  const b = branches.find(x=>x.id===selectedBranchId);
+  if(!b) return;
+  if(checkPin(pin, b.pin)){
+    setSession('branch', b);
+    updateAuthUI();
+    openBranchApp(b, true);
+    document.getElementById('pin-input').value='';
+    showToast(`✅ ${b.name} 로그인 완료`,'ok');
+  } else {
+    showToast('❌ PIN이 올바르지 않습니다.','err');
+    document.getElementById('pin-input').value='';
+  }
+}
+function onPinInput(){
+  const v=document.getElementById('pin-input').value;
+  if(v.length>=4) document.getElementById('pin-hint').textContent='Enter 또는 로그인 버튼을 누르세요';
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&document.activeElement.id==='pin-input') tryLogin(); });
+
+function tryHQLogin(){
+  const pin=document.getElementById('hq-pin').value.trim();
+  if(checkPin(pin, hashPin(HQ_PIN))){
+    setSession('hq',null);
+    closeModal('modal-hq-login');
+    document.getElementById('hq-pin').value='';
+    document.getElementById('hq-login-err').style.display='none';
+    updateAuthUI();
+    showHQDash();
+    showToast('✅ 본사 관리자로 로그인되었습니다.','ok');
+  } else {
+    document.getElementById('hq-login-err').style.display='flex';
+  }
+}
+
+function doLogout(){
+  if(!confirm('로그아웃 하시겠습니까?')) return;
+  clearSession(); updateAuthUI(); backToHQ();
+  showToast('로그아웃 되었습니다.','warn');
+}
+
+function updateAuthUI(){
+  const badge=document.getElementById('auth-badge');
+  const logoutWrap=document.getElementById('logout-wrap');
+  const branchNameEl=document.getElementById('auth-branch-name');
+  if(isHQ()){
+    badge.className='auth-badge loggedin';
+    badge.textContent='🏢 본사 관리자';
+    branchNameEl.textContent='전체 지점 수정 가능';
+    logoutWrap.style.display='block';
+    document.getElementById('login-title').textContent='✅ 본사 로그인됨';
+  } else if(isLoggedIn()){
+    badge.className='auth-badge loggedin';
+    badge.textContent='🔑 '+session.branchName;
+    branchNameEl.textContent='수정 가능';
+    logoutWrap.style.display='block';
+    document.getElementById('login-title').textContent='✅ '+session.branchName+' 로그인됨';
+  } else {
+    badge.className='auth-badge readonly';
+    badge.textContent='🔓 열람 전용';
+    branchNameEl.textContent='';
+    logoutWrap.style.display='none';
+    document.getElementById('login-title').textContent='🔐 지점 수정 로그인';
+    document.getElementById('pin-hint').textContent='선택한 지점의 PIN 코드를 입력하세요';
+  }
+  renderBranchList();
+}
+
+// ================================================================
+// BRANCH LIST SIDEBAR
+// ================================================================
+function renderBranchList(){
+  const el=document.getElementById('branch-list');
+  el.innerHTML = branches.map(b=>{
+    const cnt=b.students.length;
+    const ym=thisYM();
+    const newCnt=b.students.filter(s=>s.regDate&&s.regDate.startsWith(ym)).length;
+    const isActive=selectedBranchId===b.id;
+    const editable=canEdit(b.id);
+    return `<div class="branch-item ${isActive?'active':''}" onclick="selectBranch('${b.id}')">
+      <div>
+        <div class="bi-name">${b.name} ${editable?'<span style="font-size:10px;color:var(--accent3)">✏️</span>':''}</div>
+        <div class="bi-region">${b.region}</div>
+      </div>
+      <div class="bi-count">${cnt}명${newCnt?` <span style="color:var(--accent3)">+${newCnt}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // HQ: 지점 추가 버튼
+  if(isHQ()){
+    el.innerHTML += `<div style="margin-top:8px">
+      <button onclick="openAddBranch()" style="width:100%;background:rgba(59,130,246,.1);border:1px dashed var(--border2);border-radius:8px;padding:8px;color:var(--accent-h);font-size:12px;cursor:pointer">+ 지점 추가</button>
+    </div>`;
+  }
+}
+
+function selectBranch(id){
+  selectedBranchId=id;
+  const b=branches.find(x=>x.id===id);
+  renderBranchList();
+  openBranchApp(b, canEdit(id));
+}
+
+// ================================================================
+// BRANCH APP
+// ================================================================
+function openBranchApp(branch, editable){
+  document.getElementById('hq-dash').style.display='none';
+  document.getElementById('branch-frame-wrap').style.display='flex';
+  document.getElementById('branch-frame-title').textContent='🏫 '+branch.name+' ('+branch.region+')';
+  const modeEl=document.getElementById('branch-frame-mode');
+  modeEl.textContent=editable?'✏️ 수정 가능':'👁️ 열람 전용';
+  modeEl.className='badge '+(editable?'bg':'bb');
+
+  // iframe에 지점 앱 로드 + 메시지로 데이터/권한 전달
+  const iframe=document.getElementById('branch-iframe');
+  iframe.src=APP_FILE+'?branch='+branch.id+'&t='+Date.now();
+  iframe.onload=()=>{
+    try{
+      iframe.contentWindow.postMessage({
+        type:'CM_INIT',
+        branchId: branch.id,
+        branchName: branch.name,
+        editable,
+        data:{
+          students: branch.students||[],
+          leaveHistory: branch.leaveHistory||[],
+          scores: branch.scores||{},
+          nextId: branch.nextId||1
+        }
+      },'*');
+    } catch(e){ console.warn('iframe 통신 실패 (same-origin 필요):',e); }
+  };
+}
+
+function backToHQ(){
+  selectedBranchId=null;
+  document.getElementById('hq-dash').style.display='block';
+  document.getElementById('branch-frame-wrap').style.display='none';
+  document.getElementById('branch-iframe').src='about:blank';
+  renderBranchList();
+  renderHQDash();
+}
+
+// ================================================================
+// HQ DASHBOARD
+// ================================================================
+function showHQDash(){
+  document.getElementById('hq-dash').style.display='block';
+  document.getElementById('branch-frame-wrap').style.display='none';
+  renderHQDash();
+}
+
+function renderHQDash(){
+  const d=new Date();
+  document.getElementById('hq-date').textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 기준`;
+
+  // 전체 집계
+  let totalStudents=0, totalNew=0, totalLeave=0, totalTeachers=new Set();
+  const ym=thisYM();
+  branches.forEach(b=>{
+    totalStudents+=b.students.length;
+    totalNew+=b.students.filter(s=>s.regDate&&s.regDate.startsWith(ym)).length;
+    totalLeave+=(b.leaveHistory||[]).filter(l=>l.leaveDate&&l.leaveDate.startsWith(ym)).length;
+    b.students.forEach(s=>{ Object.values(s.subjectTeachers||{}).forEach(t=>{ if(t) totalTeachers.add(t); }); });
+  });
+
+  document.getElementById('hq-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">전체 지점</div><div class="stat-value" style="color:var(--accent-h)">${branches.length}</div><div class="stat-sub">개</div></div>
+    <div class="stat-card"><div class="stat-label">총 원생</div><div class="stat-value" style="color:var(--accent-h)">${totalStudents}</div><div class="stat-sub">명</div></div>
+    <div class="stat-card"><div class="stat-label">이달 신규</div><div class="stat-value" style="color:var(--accent3)">${totalNew}</div><div class="stat-sub">명</div></div>
+    <div class="stat-card"><div class="stat-label">이달 휴회</div><div class="stat-value" style="color:var(--accent2)">${totalLeave}</div><div class="stat-sub">명</div></div>
+    <div class="stat-card"><div class="stat-label">전체 강사</div><div class="stat-value" style="color:var(--accent4)">${totalTeachers.size}</div><div class="stat-sub">명</div></div>
+    <div class="stat-card"><div class="stat-label">평균 원생/지점</div><div class="stat-value" style="color:var(--accent5)">${branches.length?Math.round(totalStudents/branches.length):0}</div><div class="stat-sub">명</div></div>`;
+
+  renderGradeChart(); renderRegionChart(); renderBranchTable(); renderMonthlyTrend();
+}
+
+function renderGradeChart(){
+  const counts={초:0,중:0,고:0};
+  branches.forEach(b=>b.students.forEach(s=>{
+    if(s.grade.startsWith('초')) counts['초']++;
+    else if(s.grade.startsWith('중')) counts['중']++;
+    else counts['고']++;
+  }));
+  const total=Object.values(counts).reduce((a,b)=>a+b,0)||1;
+  const colors={'초':'#34d399','중':'#60a5fa','고':'#fbbf24'};
+  document.getElementById('chart-grade').innerHTML=Object.entries(counts).map(([k,v])=>`
+    <div class="bar-row">
+      <div class="bar-label">${k}등</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/total*100)}%;background:${colors[k]}">${v}명</div></div>
+      <div class="bar-num">${Math.round(v/total*100)}%</div>
+    </div>`).join('');
+}
+
+function renderRegionChart(){
+  const counts={};
+  branches.forEach(b=>{
+    const r=b.region.split(' ')[0]||b.region;
+    counts[r]=(counts[r]||0)+b.students.length;
+  });
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const max=sorted[0]?.[1]||1;
+  const colors=['#60a5fa','#34d399','#fbbf24','#a78bfa','#f87171','#38bdf8','#fb923c','#4ade80'];
+  document.getElementById('chart-region').innerHTML=sorted.map(([r,v],i)=>`
+    <div class="bar-row">
+      <div class="bar-label">${r}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(v/max*100)}%;background:${colors[i%colors.length]}">${v}명</div></div>
+      <div class="bar-num">${v}</div>
+    </div>`).join('');
+}
+
+function renderBranchTable(){
+  const q=(document.getElementById('branch-search')?.value||'').toLowerCase();
+  const ym=thisYM();
+  const list=branches.filter(b=>!q||b.name.toLowerCase().includes(q)||b.region.toLowerCase().includes(q));
+  document.getElementById('branch-table-body').innerHTML=list.map(b=>{
+    const newCnt=b.students.filter(s=>s.regDate&&s.regDate.startsWith(ym)).length;
+    const leaveCnt=(b.leaveHistory||[]).filter(l=>l.leaveDate&&l.leaveDate.startsWith(ym)).length;
+    const tSet=new Set(); b.students.forEach(s=>Object.values(s.subjectTeachers||{}).forEach(t=>{if(t)tSet.add(t);}));
+    // 6개월 트렌드 (월별 원생 증감)
+    const trend=Array.from({length:6},(_,i)=>{
+      const d=new Date(); d.setMonth(d.getMonth()-5+i);
+      const m=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const n=b.students.filter(s=>s.regDate&&s.regDate.startsWith(m)).length;
+      const l=(b.leaveHistory||[]).filter(x=>x.leaveDate&&x.leaveDate.startsWith(m)).length;
+      return n-l;
+    });
+    const maxT=Math.max(1,...trend.map(Math.abs));
+    const trendHtml=`<div class="trend-bar-wrap">${trend.map(v=>`
+      <div class="trend-bar ${v<0?'trend-neg':''}" style="width:${Math.round(Math.abs(v)/maxT*30)+4}px;height:${Math.round(Math.abs(v)/maxT*14)+4}px" title="${v>0?'+':''}${v}명"></div>`).join('')}</div>`;
+    return `<tr onclick="selectBranch('${b.id}')" style="cursor:pointer">
+      <td><strong>${b.name}</strong></td>
+      <td><span style="font-size:11px;color:var(--text3)">${b.region}</span></td>
+      <td class="tdn">${b.students.length}</td>
+      <td>${newCnt?`<span class="badge bg">+${newCnt}</span>`:'-'}</td>
+      <td>${leaveCnt?`<span class="badge br">-${leaveCnt}</span>`:'-'}</td>
+      <td class="tdn">${tSet.size}</td>
+      <td>${trendHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderMonthlyTrend(){
+  const months=Array.from({length:12},(_,i)=>{
+    const d=new Date(); d.setMonth(d.getMonth()-11+i);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  });
+  const data=months.map(m=>{
+    let n=0,l=0;
+    branches.forEach(b=>{
+      n+=b.students.filter(s=>s.regDate&&s.regDate.startsWith(m)).length;
+      l+=(b.leaveHistory||[]).filter(x=>x.leaveDate&&x.leaveDate.startsWith(m)).length;
+    });
+    return {m,n,l};
+  });
+  const max=Math.max(1,...data.map(d=>Math.max(d.n,d.l)));
+  document.getElementById('monthly-trend-chart').innerHTML=data.map(d=>`
+    <div style="display:flex;flex-direction:column;align-items:center;height:100%">
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;width:100%">
+        <div style="height:${Math.round(d.n/max*80)}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:.85;min-height:${d.n?3:0}px" title="신규 ${d.n}명"></div>
+        <div style="height:${Math.round(d.l/max*80)}px;background:var(--accent2);border-radius:3px 3px 0 0;opacity:.85;min-height:${d.l?3:0}px" title="휴회 ${d.l}명"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text3);margin-top:4px">${parseInt(d.m.split('-')[1])}월</div>
+    </div>`).join('');
+}
+
+// ================================================================
+// ADD BRANCH (HQ only)
+// ================================================================
+function openAddBranch(){
+  if(!isHQ()){ alert('본사 관리자만 지점을 추가할 수 있습니다.'); return; }
+  document.getElementById('modal-add-branch').classList.add('show');
+}
+function addBranch(){
+  const name=document.getElementById('ab-name').value.trim();
+  const region=document.getElementById('ab-region').value.trim();
+  const pin=document.getElementById('ab-pin').value.trim();
+  if(!name||!region||!pin){ alert('모든 항목을 입력하세요.'); return; }
+  if(pin.length<4){ alert('PIN은 4자리 이상이어야 합니다.'); return; }
+  const id='B'+String(branches.length+1).padStart(3,'0');
+  branches.push({id,name,region,pin:hashPin(pin),students:[],leaveHistory:[],scores:{},nextId:1});
+  saveBranches(); closeModal('modal-add-branch'); renderBranchList(); renderHQDash();
+  showToast(`✅ ${name} 추가 완료`,'ok');
+  ['ab-name','ab-region','ab-pin'].forEach(i=>document.getElementById(i).value='');
+}
+
+// ================================================================
+// RECEIVE DATA FROM BRANCH IFRAME (원생 데이터 변경 시 저장)
+// ================================================================
+window.addEventListener('message', e=>{
+  if(!e.data||e.data.type!=='CM_SAVE') return;
+  const b=branches.find(x=>x.id===e.data.branchId);
+  if(!b) return;
+  if(!canEdit(b.id)){ console.warn('권한 없음'); return; }
+  b.students=e.data.students;
+  b.leaveHistory=e.data.leaveHistory;
+  b.scores=e.data.scores;
+  b.nextId=e.data.nextId;
+  saveBranches();
+});
+
+// ================================================================
+// UTILS
+// ================================================================
+function thisYM(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function showHQLogin(){ document.getElementById('modal-hq-login').classList.add('show'); setTimeout(()=>document.getElementById('hq-pin').focus(),100); }
+
+// TOAST
+function showToast(msg, type='ok'){
+  const colors={ok:'var(--accent3)',err:'var(--accent2)',warn:'var(--accent4)'};
+  const t=document.createElement('div');
+  t.style.cssText=`position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid ${colors[type]};border-radius:10px;padding:12px 20px;font-size:13px;color:${colors[type]};z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slideIn .2s ease`;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3000);
+}
+const toastStyle=document.createElement('style');
+toastStyle.textContent='@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}';
+document.head.appendChild(toastStyle);
+
+// ================================================================
+// INIT
+// ================================================================
+function init(){
+  const d=new Date();
+  document.getElementById('hq-date').textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 기준`;
+  updateAuthUI();
+  renderHQDash();
+
+  // 세션 만료 체크 (매분)
+  setInterval(()=>{
+    if(session && session.expiresAt < Date.now()){
+      clearSession(); updateAuthUI();
+      showToast('세션이 만료되었습니다. 다시 로그인하세요.','warn');
+    }
+  }, 60000);
+}
+init();
+</script>
+</body>
+</html>
