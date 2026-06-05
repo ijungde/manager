@@ -283,7 +283,7 @@ tr:hover td{background:rgba(59,130,246,.04);}
 // ================================================================
 // CONFIG — 실제 운영 시 서버에서 관리 (PIN은 해시 처리 필요)
 // ================================================================
-const HQ_PIN = '000000'; // 본사 마스터 PIN (실제 배포 시 변경 필수)
+const HQ_PIN = '12345'; // 본사 마스터 PIN (실제 배포 시 변경 필수)
 const APP_FILE = 'academy_manager.html'; // 지점 앱 파일명
 
 // ================================================================
@@ -299,11 +299,11 @@ function saveBranches(){ localStorage.setItem('cm_branches', JSON.stringify(bran
 
 function getDefaultBranches(){
   return [
-    { id:'B001', name:'강남점',   region:'서울 강남구', pin:hashPin('1234'), students:[], leaveHistory:[], scores:{}, nextId:1 },
-    { id:'B002', name:'분당점',   region:'경기 성남시', pin:hashPin('2345'), students:[], leaveHistory:[], scores:{}, nextId:1 },
-    { id:'B003', name:'목동점',   region:'서울 양천구', pin:hashPin('3456'), students:[], leaveHistory:[], scores:{}, nextId:1 },
-    { id:'B004', name:'수원점',   region:'경기 수원시', pin:hashPin('4567'), students:[], leaveHistory:[], scores:{}, nextId:1 },
-    { id:'B005', name:'인천점',   region:'인천 남동구', pin:hashPin('5678'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B001', name:'강남점',   region:'서울 강남구', pin:hashPin('0001'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B002', name:'분당점',   region:'경기 성남시', pin:hashPin('0002'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B003', name:'목동점',   region:'서울 양천구', pin:hashPin('0003'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B004', name:'수원점',   region:'경기 수원시', pin:hashPin('0004'), students:[], leaveHistory:[], scores:{}, nextId:1 },
+    { id:'B005', name:'인천점',   region:'인천 남동구', pin:hashPin('0005'), students:[], leaveHistory:[], scores:{}, nextId:1 },
   ];
 }
 
