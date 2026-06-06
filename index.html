@@ -1037,21 +1037,40 @@ function editGrade(el, sid){
   sel.addEventListener('change',done);
 }
 
+function parseFlexDate(input){
+  if(!input) return '';
+  const s = input.replace(/[^0-9]/g,''); // 숫자만 추출
+  let y,m,d;
+  if(s.length===8){       // 20260607
+    y=s.slice(0,4); m=s.slice(4,6); d=s.slice(6,8);
+  } else if(s.length===6){ // 260607 → 2026-06-07
+    y='20'+s.slice(0,2); m=s.slice(2,4); d=s.slice(4,6);
+  } else {
+    // 하이픈/슬래시 포함 형식 그대로
+    const parts = input.trim().split(/[-\/\.]/);
+    if(parts.length===3){
+      y=parts[0].length===4?parts[0]:'20'+parts[0];
+      m=parts[1].padStart(2,'0');
+      d=parts[2].padStart(2,'0');
+    } else return input.trim();
+  }
+  return `${y}-${m}-${d}`;
+}
+
 function editRegDate(el, sid){
   const s=students.find(x=>x.id===sid);
   if(!s) return;
   const cur=s.regDate||'';
-  // date input을 직접 교체하면 모바일/브라우저에 따라 change 안 뜨는 문제 있으므로
-  // prompt 방식으로 처리
-  const val=prompt('등록일을 입력하세요 (예: 2025-03-05)', cur);
-  if(val===null) return; // 취소
+  const val=prompt('등록일 입력\n숫자만 입력 가능: 20260607 또는 260607', cur);
+  if(val===null) return;
   const trimmed=val.trim();
   if(!trimmed) return;
+  const formatted=parseFlexDate(trimmed);
   const prev=s.regDate||'';
-  s.regDate=trimmed;
-  if(trimmed!==prev) addChangeLog(sid,'등록일',prev,trimmed);
+  s.regDate=formatted;
+  if(formatted!==prev) addChangeLog(sid,'등록일',prev,formatted);
   cloudSaveStudent(s);
-  el.textContent=trimmed;
+  el.textContent=formatted;
 }
 
 function editPayment(el, sid){
@@ -1766,18 +1785,6 @@ function renderArchive(){
     if(type==='score'&&!hasScores) return '';
     if(type==='leave'&&!hasLeaves) return '';
 
-    // grade history
-    const ghRows=m.gradeHistory.length?`
-      <div style="margin-bottom:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">학년 이력</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${m.gradeHistory.map(g=>`<span style="background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--text2)">
-            <span class="tag ${gradeTag(g.from)}">${g.from}</span> → <span class="tag ${gradeTag(g.to)}">${g.to}</span>
-            <span style="color:var(--text3);margin-left:4px">${g.school||''} · ${g.date||''}</span>
-          </span>`).join('')}
-        </div>
-      </div>`:'' ;
-
     // leave history
     const leaveRows=hasLeaves?`
       <div style="margin-bottom:12px">
@@ -1795,7 +1802,6 @@ function renderArchive(){
           </tr>`).join('')}</tbody>
         </table></div>
       </div>`:'';
-
 
     // score history
     const scoreRows=hasScores?`
@@ -1822,7 +1828,7 @@ function renderArchive(){
             </table></div>
           </div>`;
         }).join('')}
-      </div>`:'' ;
+      </div>`:'';
 
     return `<div class="card" style="margin-bottom:14px">
       <div class="card-header">
@@ -1841,12 +1847,12 @@ function renderArchive(){
         </div>
       </div>
       <div style="padding:14px 16px">
-        ${ghRows}${leaveRows}${scoreRows}
+        ${leaveRows}${scoreRows}
         ${(()=>{
           const myLog=changeLog.filter(c=>c.sid===id);
           if(!myLog.length) return '';
-          const fieldLabel={name:'이름',school:'학교',학년:'학년',수금일:'수금일',등록일:'등록일'};
-          return `<div style="margin-top:${(ghRows||leaveRows||scoreRows)?'12px':'0'}">
+          const fieldLabel={name:'이름',school:'학교',학년:'학년',수금일:'수금일',등록일:'등록일',과목추가:'과목추가'};
+          return `<div style="margin-top:${(leaveRows||scoreRows)?'12px':'0'}">
             <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📝 변경이력 (${myLog.length}건)</div>
             <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:360px">
               <thead><tr>
@@ -1861,7 +1867,7 @@ function renderArchive(){
             </table></div>
           </div>`;
         })()}
-        ${!hasLeaves&&!hasScores&&!m.gradeHistory.length&&!changeLog.find(c=>c.sid===id)?'<div style="color:var(--text3);font-size:12px">기록 없음</div>':''}
+        ${!hasLeaves&&!hasScores&&!changeLog.find(c=>c.sid===id)?'<div style="color:var(--text3);font-size:12px">기록 없음</div>':''}
       </div>
     </div>`;
   }).join('');
