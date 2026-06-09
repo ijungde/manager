@@ -317,6 +317,11 @@ tr:hover td{background:rgba(59,130,246,.05);}
       <div class="logo-main">Coaching<em>Manager</em></div>
       <div class="logo-sub">Academy Student Management</div>
     </div>
+    <div id="branch-badge" style="display:none;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:4px 12px;margin-left:4px">
+      <div style="font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px">지점</div>
+      <div id="branch-name" style="font-size:13px;font-weight:800;color:var(--accent-h)"></div>
+    </div>
+    </div>
   </div>
   <div class="header-info">
     <div class="hbadge">전체 원생 <strong class="c1" id="hdr-total">0</strong>명</div>
@@ -2005,9 +2010,17 @@ function applyCloudData(data){
   if(data.nextId)      nextId      = parseInt(data.nextId);
   if(data.nextLeaveId) nextLeaveId = parseInt(data.nextLeaveId);
   if(data.nextLogId)   nextLogId   = parseInt(data.nextLogId);
-  // localStorage는 캐시용으로만 (용량 초과 방지 - 학생명단만 저장)
+  // 지점명 표시
+  if(data.branchName){
+    const badge=document.getElementById('branch-badge');
+    const nameEl=document.getElementById('branch-name');
+    if(badge&&nameEl){
+      nameEl.textContent=data.branchName;
+      badge.style.display='block';
+    }
+  }
   try {
-    localStorage.setItem('ams_gas_url_v2', gasUrl);
+    localStorage.setItem(GAS_LS, gasUrl);
     localStorage.setItem('ams_nextid', String(nextId));
   } catch(e){}
 }
