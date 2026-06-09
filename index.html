@@ -362,14 +362,6 @@ tr:hover td{background:rgba(59,130,246,.05);}
 <!-- 메인 앱 (잠금 해제 후 표시) -->
 <div id="mainApp" style="display:none">
 
-<!-- 클라우드 배너 -->
-<div class="cloud-banner" id="cloudBanner">
-  <div class="cloud-dot" id="cloudDot"></div>
-  <div class="cloud-status" id="cloudStatus">구글 시트 연결됨</div>
-  <button class="cloud-btn cloud-sync" onclick="doSync()">🔄 동기화</button>
-  <button class="cloud-btn cloud-disc" onclick="doDisconn()">연결 해제</button>
-</div>
-
 <!-- HEADER -->
 <div class="header">
   <div class="logo">
@@ -378,17 +370,24 @@ tr:hover td{background:rgba(59,130,246,.05);}
       <div class="logo-main">Coaching<em>Manager</em></div>
       <div class="logo-sub">Academy Student Management</div>
     </div>
-    <div id="branch-badge" style="display:none;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:4px 12px;margin-left:4px">
-      <div style="font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px">지점</div>
-      <div id="branch-name" style="font-size:13px;font-weight:800;color:var(--accent-h)"></div>
-    </div>
+    <div id="branch-badge" style="display:none;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;padding:4px 12px;margin-left:4px">
+      <div style="font-size:9px;color:rgba(255,255,255,.6);font-weight:600;letter-spacing:.5px">지점</div>
+      <div id="branch-name" style="font-size:13px;font-weight:800;color:#fff"></div>
     </div>
   </div>
   <div class="header-info">
-    <div class="hbadge">전체 원생 <strong class="c1" id="hdr-total">0</strong>명</div>
-    <div class="hbadge">이번달 신규 <strong class="c2" id="hdr-new">0</strong>명</div>
-    <div class="hbadge">이번달 휴회 <strong class="c3" id="hdr-leave">0</strong>명</div>
-    <button class="btn btn-warn" style="padding:5px 13px;font-size:12px;border-radius:7px" onclick="manualGradeUp()" title="1~2월 학년 진급 처리">🎓 학년 진급</button>
+    <div class="hbadge">전체 <strong class="c1" id="hdr-total">0</strong>명</div>
+    <div class="hbadge">신규 <strong class="c2" id="hdr-new">0</strong></div>
+    <div class="hbadge">휴회 <strong class="c3" id="hdr-leave">0</strong></div>
+    <button class="btn btn-warn" style="padding:5px 10px;font-size:12px;border-radius:7px" onclick="manualGradeUp()" title="학년 진급 처리">🎓 진급</button>
+    <!-- 클라우드 상태 -->
+    <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 10px;">
+      <div class="cloud-dot" id="cloudDot" style="flex-shrink:0"></div>
+      <div class="cloud-status" id="cloudStatus" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">연결 중...</div>
+      <button onclick="doSync()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="동기화">🔄</button>
+      <button onclick="doDisconn()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="연결 해제">🔌</button>
+    </div>
+    <!-- 테마 토글 -->
     <div class="theme-toggle-wrap">
       <span id="theme-label">🌙</span>
       <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="라이트/다크 모드 전환"></button>
