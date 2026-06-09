@@ -14,6 +14,38 @@
   --text:#e2eaf8;--text2:#8ba4cc;--text3:#4d6a9a;
   --danger:#ef4444;--success:#10b981;--warning:#f59e0b;--tab-h:52px;
 }
+/* 라이트 모드 */
+body.light{
+  --bg:#f0f4ff;--surface:#ffffff;--surface2:#e8eef8;--surface3:#dde6f5;
+  --border:#c5d3e8;--border2:#b0c4de;
+  --accent:#2563eb;--accent-h:#1d4ed8;
+  --accent2:#dc2626;--accent3:#059669;--accent4:#d97706;--accent5:#7c3aed;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --danger:#dc2626;--success:#059669;--warning:#d97706;
+}
+body.light .header{background:linear-gradient(90deg,#1e40af,#2563eb)!important;}
+body.light .header .logo-main{color:#fff;}
+body.light .header .logo-sub{color:rgba(255,255,255,.7);}
+body.light .hbadge{background:rgba(255,255,255,.2);color:#fff;}
+body.light .hbadge strong{color:#fff;}
+body.light .hdate{color:rgba(255,255,255,.8);}
+body.light #branch-badge{background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.3);}
+body.light #branch-name{color:#fff;}
+body.light .tab-nav{background:#fff;border-bottom:1px solid var(--border);}
+body.light .tab-btn{color:var(--text2);}
+body.light .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+body.light .form-input{background:#fff;color:var(--text);border-color:var(--border);}
+body.light .form-select{background:#fff;color:var(--text);}
+body.light table thead tr{background:var(--surface2);}
+body.light .cloud-banner{background:var(--surface2);}
+
+/* 토글 버튼 */
+.theme-toggle{width:44px;height:24px;border-radius:12px;border:none;cursor:pointer;position:relative;transition:background .3s;background:var(--border2);flex-shrink:0;}
+.theme-toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .3s;box-shadow:0 1px 4px rgba(0,0,0,.3);}
+body.light .theme-toggle{background:var(--accent);}
+body.light .theme-toggle::after{transform:translateX(20px);}
+.theme-toggle-wrap{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text3);}
+body.light .theme-toggle-wrap{color:rgba(255,255,255,.7);}
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
@@ -328,6 +360,11 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <div class="hbadge">이번달 신규 <strong class="c2" id="hdr-new">0</strong>명</div>
     <div class="hbadge">이번달 휴회 <strong class="c3" id="hdr-leave">0</strong>명</div>
     <button class="btn btn-warn" style="padding:5px 13px;font-size:12px;border-radius:7px" onclick="manualGradeUp()" title="1~2월 학년 진급 처리">🎓 학년 진급</button>
+    <div class="theme-toggle-wrap">
+      <span id="theme-label">🌙</span>
+      <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="라이트/다크 모드 전환"></button>
+      <span>☀️</span>
+    </div>
     <div class="hdate" id="hdr-date"></div>
   </div>
 </div>
@@ -656,6 +693,24 @@ const SUBJ_COLORS = {'국어':'chip-ko','영어':'chip-en','수학':'chip-ma','�
 const EXAMS = ['1학기 중간','1학기 기말','2학기 중간','2학기 기말'];
 
 function save(){ /* v2: 구글 시트에 직접 저장 - 각 액션별 cloudSaveStudent 등 호출 */ }
+
+// 라이트/다크 토글
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  document.getElementById('theme-label').textContent = isLight ? '☀️' : '🌙';
+  try{ localStorage.setItem('ams_theme', isLight?'light':'dark'); }catch(e){}
+}
+function initTheme(){
+  try{
+    const saved = localStorage.getItem('ams_theme');
+    if(saved==='light'){
+      document.body.classList.add('light');
+      const lbl = document.getElementById('theme-label');
+      if(lbl) lbl.textContent='☀️';
+    }
+  }catch(e){}
+}
 function nowStr(){ return new Date().toISOString().slice(0,10); }
 function fmtDate(d){
   if(!d) return '';
@@ -2121,6 +2176,7 @@ function initYearSelects(){
 }
 
 function init(){
+  initTheme();
   initYearSelects();
   initTabDrag();
   // 저장된 GAS URL로 자동 로그인
