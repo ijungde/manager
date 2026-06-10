@@ -612,18 +612,6 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <span style="font-size:12px;color:var(--text3)">※ 현재 명단에 없는 학생 포함 전체 기록 조회</span>
   </div>
   <div id="archive-panels"></div>
-
-  <!-- 변경이력 -->
-  <div class="card" style="margin-top:16px">
-    <div class="card-header">
-      <div class="card-title">📝 수정 변경이력</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input class="form-input" id="changelog-search" placeholder="🔍 이름 검색..." style="width:150px;padding:6px 10px;font-size:12px" oninput="renderChangeLog()">
-        <button class="btn btn-ghost btn-sm" onclick="if(confirm('변경이력을 모두 삭제하시겠습니까?')){changeLog=[];renderChangeLog();}">🗑 전체삭제</button>
-      </div>
-    </div>
-    <div id="changelog-list" style="padding:8px 0"></div>
-  </div>
 </div>
 
 <!-- ▸ 학년 진급 모달 -->
@@ -748,7 +736,24 @@ function fmtDate(d){
   if(isNaN(dt.getTime())) return String(d).slice(0,10);
   return dt.toISOString().slice(0,10);
 }
-function thisYM(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function thisYM(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function thisMonthRange(){
+  const ym=thisYM();
+  const [y,m]=ym.split('-').map(Number);
+  const ny=m===12?y+1:y;
+  const nm=m===12?1:m+1;
+  const start=`${y}-${String(m).padStart(2,'0')}-01`;
+  const end=`${ny}-${String(nm).padStart(2,'0')}-01`;
+  return {start, end, ym};
+}
+function inThisMonth(dateStr){
+  if(!dateStr) return false;
+  const {ym}=thisMonthRange();
+  return dateStr.startsWith(ym);
+}
 function gradeTag(g){ return g.startsWith('초')?'tag-elem':g.startsWith('중')?'tag-mid':'tag-high'; }
 function korSort(a,b){ return a.name.localeCompare(b.name,'ko'); }
 // 수금일: "매월" 앞에 있으면 제거, 숫자만 있으면 "일" 자동 추가
@@ -910,9 +915,8 @@ function renderTab(id){
 // ================================================================
 function updateHeader(){
   document.getElementById('hdr-total').textContent=students.length;
-  const ym=thisYM();
-  document.getElementById('hdr-new').textContent=students.filter(s=>s.regDate&&s.regDate.startsWith(ym)).length;
-  document.getElementById('hdr-leave').textContent=leaveHistory.filter(l=>l.leaveDate&&l.leaveDate.startsWith(ym)).length;
+  document.getElementById('hdr-new').textContent=students.filter(s=>inThisMonth(s.regDate)).length;
+  document.getElementById('hdr-leave').textContent=leaveHistory.filter(l=>inThisMonth(l.leaveDate)).length;
   const d=new Date();
   document.getElementById('hdr-date').textContent=`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
 }
@@ -1437,8 +1441,7 @@ function clearRNewForm(){
   rCustomSubjects=[]; renderRCustomChips(); updateRSubjFields();
 }
 function renderRNewMonth(){
-  const ym=thisYM();
-  const list=students.filter(s=>s.regDate&&s.regDate.startsWith(ym)).sort(korSort);
+  const list=students.filter(s=>inThisMonth(s.regDate)).sort(korSort);
   document.getElementById('rp-new-count').textContent=list.length;
   document.getElementById('rp-new-list').innerHTML=list.length?list.map(s=>`
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;display:flex;align-items:center;justify-content:space-between">
@@ -1514,6 +1517,7 @@ function processRLeave(){
   };
   leaveHistory.push(leaveEntry);
   cloudSaveLeave(leaveEntry);
+  addChangeLog(s.id,'휴회','재원',checkedSubjs.join(', '));
   s.subjects=(s.subjects||[]).filter(sub=>!checkedSubjs.includes(sub));
   if(s.subjectTeachers) checkedSubjs.forEach(sub=>{ delete s.subjectTeachers[sub]; });
   if(!s.subjects.length){
@@ -1526,8 +1530,7 @@ function processRLeave(){
   alert(`⏸️ ${s.name}의 [${checkedSubjs.join(', ')}] 휴회 처리 완료`);
 }
 function renderRLeaveMonth(){
-  const ym=thisYM();
-  const list=leaveHistory.map((l,i)=>({...l,_idx:i})).filter(l=>l.leaveDate&&l.leaveDate.startsWith(ym)).sort(korSort);
+  const list=leaveHistory.map((l,i)=>({...l,_idx:i})).filter(l=>inThisMonth(l.leaveDate)).sort(korSort);
   document.getElementById('rp-leave-count').textContent=list.length;
   document.getElementById('rp-leave-list').innerHTML=list.length?list.map(l=>`
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px">
@@ -1674,7 +1677,7 @@ function cancelNewStudent(id){
   if(!confirm('이 원생의 등록을 취소하시겠습니까?')) return;
   const s=students.find(x=>x.id===id);
   if(!s) return;
-  if(!s.regDate||!s.regDate.startsWith(thisYM())){ alert('당월 등록한 원생만 취소할 수 있습니다.'); return; }
+  if(!s.regDate||!inThisMonth(s.regDate)){ alert('당월 등록한 원생만 취소할 수 있습니다.'); return; }
   students=students.filter(x=>x.id!==id);
   cloudDeleteStudent(id);
   renderRNewMonth(); updateHeader(); renderAll();
@@ -1726,9 +1729,39 @@ function cancelLeave(idx){
   alert(`✅ ${l.name} 원생의 휴회가 취소되었습니다.`);
 }
 
-// ================================================================
-// TAB: 성적 기록
-// ================================================================
+// 휴회이력 필드 수정 (data 속성 방식 - 따옴표 충돌 방지)
+function editLeaveFieldEl(el){
+  const lid=parseInt(el.dataset.lid);
+  const field=el.dataset.field;
+  const cur=el.dataset.cur||'';
+  const label={leaveDate:'휴회일',regDate:'등록일',reason:'사유',note:'비고'};
+  const val=prompt(`${label[field]||field} 수정`, cur==='-'?'':cur);
+  if(val===null) return;
+  const trimmed=val.trim();
+  const l=leaveHistory.find(x=>x.id===lid);
+  if(!l) return;
+  if(field==='leaveDate'||field==='regDate'){
+    l[field]=parseFlexDate(trimmed)||trimmed;
+  } else {
+    l[field]=trimmed;
+  }
+  cloudSaveLeave(l);
+  renderArchive();
+}
+
+// 휴회이력 삭제
+function deleteLeaveRecord(lid){
+  if(!confirm('이 휴회 기록을 삭제하시겠습니까?')) return;
+  const idx=leaveHistory.findIndex(x=>x.id===lid);
+  if(idx<0) return;
+  cloudDeleteLeave(lid);
+  leaveHistory.splice(idx,1);
+  renderArchive();
+  updateHeader();
+}
+
+// 총학생 탭에서 복회 처리 - 제거됨
+  const leaveLogs=leaveHistory.filter(l=>l.id===id);
 function getScore(sid,year,subj,exam){
   return (((scores[sid]||{})[year]||{})[subj]||{})[exam]||'';
 }
@@ -1808,25 +1841,47 @@ let _scoreSid = null;
 function openScoreModal(sid){
   const s=students.find(x=>x.id===sid);
   if(!s) return;
+  openScoreModalForArchive(sid);
+}
+
+// 재원/휴회/졸업 모두 사용 가능한 성적 모달
+function openScoreModalForArchive(sid){
   _scoreSid = sid;
+  // 학생 정보: 현재 명단 우선, 없으면 휴회이력에서
+  const s = students.find(x=>x.id===sid);
+  const l = leaveHistory.filter(x=>x.id===sid);
+  const name = s?s.name:(l.length?l[0].name:`(ID:${sid})`);
+  const school = s?s.school:(l.length?l[0].school:'');
+  const grade = s?s.grade:(l.length?l[0].grade:'');
+  // 과목: 재원생은 현재 과목, 휴회생은 전체 수강 과목 합산
+  const subjects = s
+    ? (s.subjects||[])
+    : [...new Set(l.flatMap(x=>x.allSubjects||x.leaveSubjects||[]))];
+  const subjectTeachers = s
+    ? (s.subjectTeachers||{})
+    : Object.assign({}, ...l.map(x=>x.subjectTeachers||{}));
+  const isActive = !!s;
+
   const curY=new Date().getFullYear();
-  // populate year select
   const sel=document.getElementById('modal-score-year');
   sel.innerHTML=Array.from({length:5},(_,i)=>curY-i).map(y=>`<option value="${y}" ${y===curY?'selected':''}>${y}년</option>`).join('');
-  document.getElementById('modal-score-title').textContent=`📝 ${s.name} 성적`;
+  document.getElementById('modal-score-title').textContent=`📝 ${name} 성적 ${isActive?'':'(휴회/졸업)'}`;
   document.getElementById('modal-score-sub').innerHTML=
-    `${s.school} · <span class="tag ${gradeTag(s.grade)}" style="font-size:10px">${s.grade}</span>`;
+    `${school} · <span class="tag ${gradeTag(grade)}" style="font-size:10px">${grade}</span>`;
   document.getElementById('modal-score-body').innerHTML=
-    buildScoreTable(sid, curY, s.subjects||[], s.subjectTeachers||{});
+    buildScoreTable(sid, curY, subjects, subjectTeachers);
   document.getElementById('modal-score').classList.add('show');
 }
+
 function reloadScoreModal(){
   if(!_scoreSid) return;
-  const s=students.find(x=>x.id===_scoreSid);
-  if(!s) return;
   const year=parseInt(document.getElementById('modal-score-year').value);
+  const s=students.find(x=>x.id===_scoreSid);
+  const l=leaveHistory.filter(x=>x.id===_scoreSid);
+  const subjects=s?(s.subjects||[]):[...new Set(l.flatMap(x=>x.allSubjects||x.leaveSubjects||[]))];
+  const subjectTeachers=s?(s.subjectTeachers||{}):Object.assign({},...l.map(x=>x.subjectTeachers||{}));
   document.getElementById('modal-score-body').innerHTML=
-    buildScoreTable(_scoreSid, year, s.subjects||[], s.subjectTeachers||{});
+    buildScoreTable(_scoreSid, year, subjects, subjectTeachers);
 }
 
 // ================================================================
@@ -1845,13 +1900,13 @@ function renderArchive(){
 
   // ID별 메타 정보 구성 (명단에 없으면 휴회이력/성적에서 가져옴)
   const meta={};
-  students.forEach(s=>{ meta[s.id]={name:s.name,school:s.school,grade:s.grade,active:true,gradeHistory:s.gradeHistory||[]}; });
+  students.forEach(s=>{ meta[s.id]={name:s.name,school:s.school,grade:s.grade,regDate:s.regDate||'',active:true,gradeHistory:s.gradeHistory||[],subjects:s.subjects||[],subjectTeachers:s.subjectTeachers||{}}; });
   leaveHistory.forEach(l=>{
-    if(!meta[l.id]) meta[l.id]={name:l.name,school:l.school,grade:l.grade,active:false,gradeHistory:[]};
+    if(!meta[l.id]) meta[l.id]={name:l.name,school:l.school,grade:l.grade,regDate:l.regDate||'',active:false,gradeHistory:[],subjects:[],subjectTeachers:{}};
   });
   Object.keys(scores).forEach(id=>{
     const sid=parseInt(id);
-    if(!meta[sid]) meta[sid]={name:`(ID:${sid})`,school:'-',grade:'-',active:false,gradeHistory:[]};
+    if(!meta[sid]) meta[sid]={name:`(ID:${sid})`,school:'-',grade:'-',regDate:'',active:false,gradeHistory:[],subjects:[],subjectTeachers:{}};
   });
 
   let ids=[...allIds].filter(id=>{
@@ -1877,17 +1932,41 @@ function renderArchive(){
     const leaveRows=hasLeaves?`
       <div style="margin-bottom:12px">
         <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">휴회 이력 (${leaveLogs.length}건)</div>
-        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:440px;font-size:12px">
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:480px;font-size:12px">
           <thead><tr>
-            ${['휴회일','등록일','과목','사유','비고'].map(h=>`<th style="padding:6px 10px;background:var(--surface3);color:var(--text3);font-size:10px;font-weight:700;border-bottom:1px solid var(--border)">${h}</th>`).join('')}
+            ${['등록일','휴회일','유지개월','과목','사유','비고'].map(h=>`<th style="padding:6px 10px;background:var(--surface3);color:var(--text3);font-size:10px;font-weight:700;border-bottom:1px solid var(--border)">${h}</th>`).join('')}
           </tr></thead>
-          <tbody>${leaveLogs.sort((a,b)=>fmtDate(b.leaveDate).localeCompare(fmtDate(a.leaveDate))).map(l=>`<tr>
-            <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--text2)">${fmtDate(l.leaveDate)}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--text3)">${fmtDate(l.regDate)||'-'}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3)">${subjectChips(l.leaveSubjects||[])}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3)">${l.reason}</td>
-            <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--text3)">${l.note||'-'}</td>
-          </tr>`).join('')}</tbody>
+          <tbody>${leaveLogs.sort((a,b)=>fmtDate(b.leaveDate).localeCompare(fmtDate(a.leaveDate))).map(l=>{
+            const reg=l.regDate?new Date(l.regDate):null;
+            const lv=l.leaveDate?new Date(l.leaveDate):null;
+            let months='-';
+            if(reg&&lv&&!isNaN(reg)&&!isNaN(lv)){
+              const diff=(lv.getFullYear()-reg.getFullYear())*12+(lv.getMonth()-reg.getMonth());
+              months=diff>=0?diff+'개월':'-';
+            }
+            return `<tr>
+              <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--text3)">
+                <span class="editable-cell" data-lid="${l.id}" data-field="regDate" data-cur="${fmtDate(l.regDate)||''}" onclick="editLeaveFieldEl(this)" title="클릭하여 수정">${fmtDate(l.regDate)||'-'}</span>
+              </td>
+              <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--accent2);font-weight:600">
+                <span class="editable-cell" data-lid="${l.id}" data-field="leaveDate" data-cur="${fmtDate(l.leaveDate)}" onclick="editLeaveFieldEl(this)" title="클릭하여 수정">${fmtDate(l.leaveDate)}</span>
+              </td>
+              <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--accent-h);font-weight:600;text-align:center">${months}</td>
+              <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3)">${
+                (l.leaveSubjects||[]).map(sub=>{
+                  const t=(l.subjectTeachers||{})[sub]||'';
+                  const cls=SUBJ_COLORS[sub]||'chip-etc';
+                  return `<span class="chip ${cls}" style="margin-right:3px">${sub}${t?`<span style="opacity:.75;font-size:10px"> · ${t}</span>`:''}</span>`;
+                }).join('')
+              }</td>
+              <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3)">
+                <span class="editable-cell" data-lid="${l.id}" data-field="reason" data-cur="${(l.reason||'').replace(/"/g,'&quot;')}" onclick="editLeaveFieldEl(this)" title="클릭하여 수정">${l.reason||'-'}</span>
+              </td>
+              <td style="padding:6px 10px;border-bottom:1px solid rgba(30,52,96,.3);color:var(--text3)">
+                <span class="editable-cell" data-lid="${l.id}" data-field="note" data-cur="${(l.note||'').replace(/"/g,'&quot;')}" onclick="editLeaveFieldEl(this)" title="클릭하여 수정">${l.note||'-'}</span>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
         </table></div>
       </div>`:'';
 
@@ -1927,11 +2006,23 @@ function renderArchive(){
           ${isActive
             ?`<span style="background:rgba(52,211,153,.15);color:var(--accent3);font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px">재원</span>`
             :`<span style="background:rgba(248,113,113,.15);color:var(--accent2);font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px">휴회/졸업</span>`}
+          ${(()=>{
+            const regStr = m.regDate || (leaveLogs.length?leaveLogs[0].regDate:'');
+            if(!regStr) return '';
+            const reg = new Date(regStr);
+            const endDate = isActive
+              ? new Date()
+              : (leaveLogs.length ? new Date(leaveLogs[leaveLogs.length-1].leaveDate) : new Date());
+            if(isNaN(reg.getTime())||isNaN(endDate.getTime())) return '';
+            const diff=(endDate.getFullYear()-reg.getFullYear())*12+(endDate.getMonth()-reg.getMonth());
+            if(diff<0) return '';
+            return `<span style="background:rgba(59,130,246,.12);color:var(--accent-h);font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px">📅 ${diff}개월</span>`;
+          })()}
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;align-items:center">
           ${hasLeaves?`<span class="badge br">${leaveLogs.length}건 휴회</span>`:''}
           ${hasScores?`<span class="badge bb">${Object.keys(scoreData).length}년도 성적</span>`:''}
-          ${isActive?`<button class="btn btn-ghost btn-sm" onclick="openScoreModal(${id})">📝 성적 입력</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="openScoreModalForArchive(${id})">📝 성적 ${isActive?'입력':'열람'}</button>
         </div>
       </div>
       <div style="padding:14px 16px">
@@ -1939,7 +2030,9 @@ function renderArchive(){
         ${(()=>{
           const myLog=changeLog.filter(c=>c.sid===id);
           if(!myLog.length) return '';
-          const fieldLabel={name:'이름',school:'학교',학년:'학년',수금일:'수금일',등록일:'등록일',과목추가:'과목추가'};
+          const fieldLabel={name:'이름',school:'학교',학년:'학년',수금일:'수금일',등록일:'등록일',과목추가:'과목추가',휴회:'휴회'};
+          const fieldColor={휴회:'rgba(248,113,113,.2)'};
+          const fieldTextColor={휴회:'var(--accent2)'};
           return `<div style="margin-top:${(leaveRows||scoreRows)?'12px':'0'}">
             <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📝 변경이력 (${myLog.length}건)</div>
             <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px;min-width:360px">
@@ -1948,7 +2041,7 @@ function renderArchive(){
               </tr></thead>
               <tbody>${myLog.map((c,i)=>`<tr style="${i%2===1?'background:rgba(30,52,96,.1)':''}">
                 <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25);color:var(--text3);white-space:nowrap">${fmtDate(c.date)||''}</td>
-                <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25)"><span style="background:rgba(59,130,246,.15);color:var(--accent-h);font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">${fieldLabel[c.field]||c.field}</span></td>
+                <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25)"><span style="background:${fieldColor[c.field]||'rgba(59,130,246,.15)'};color:${fieldTextColor[c.field]||'var(--accent-h)'};font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px">${fieldLabel[c.field]||c.field}</span></td>
                 <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25);color:var(--accent2)">${c.prev||'-'}</td>
                 <td style="padding:5px 10px;border-bottom:1px solid rgba(30,52,96,.25);color:var(--accent3)">${c.next||'-'}</td>
               </tr>`).join('')}</tbody>
@@ -1960,7 +2053,6 @@ function renderArchive(){
     </div>`;
   }).join('');
   if(!el.innerHTML.trim()) el.innerHTML=`<div class="empty">조건에 맞는 기록이 없습니다</div>`;
-  renderChangeLog();
 }
 
 // 변경이력 렌더링
@@ -2005,7 +2097,7 @@ function renderStats(){
     let nl=students.filter(s=>s.regDate&&s.regDate.startsWith(ym));
     let ll=leaveHistory.filter(l=>l.leaveDate&&l.leaveDate.startsWith(ym));
     if(selTeacher){ nl=nl.filter(s=>s.teacher===selTeacher); ll=ll.filter(l=>l.teacher===selTeacher); }
-    return {m,ym,nl,ll};
+    return {m,nl,ll};
   });
   const mx=Math.max(1,...md.map(d=>Math.max(d.nl.length,d.ll.length)));
   document.getElementById('stats-panels').innerHTML=`
