@@ -2418,7 +2418,7 @@ function addChangeLog(sid, field, prev, next){
 }
 
 // ── 데모 모드 ──
-var isDemo = new URLSearchParams(location.search).get('demo') !== null;
+var isDemo = true; // demo.html은 항상 데모버전
 
 function startDemo() {
   try{ localStorage.removeItem(GAS_LS); }catch(e){}
