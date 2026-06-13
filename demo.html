@@ -2371,7 +2371,7 @@ function applyCloudData(data){
 
 // ── 학생 저장 (추가/수정) ──
 function cloudSaveStudent(s){
-  if(!gasUrl) return;
+  if(!gasUrl||isDemo) return;
   setCloud('ing','저장 중…');
   gasPost({ action:'saveStudent', data:s }, function(ok){
     setCloud(ok?'ok':'err', ok?('저장됨 '+new Date().toLocaleTimeString()):'저장 실패');
@@ -2415,6 +2415,21 @@ function addChangeLog(sid, field, prev, next){
   changeLog.unshift(entry);
   if(changeLog.length>1000) changeLog=changeLog.slice(0,1000);
   cloudSaveLog(entry);
+}
+
+// ── 데모 모드 ──
+var isDemo = new URLSearchParams(location.search).get('demo') !== null;
+
+function startDemo() {
+  try{ localStorage.removeItem(GAS_LS); }catch(e){}
+  const ls = document.getElementById('lockScreen');
+  if(ls){ ls.style.display='none'; ls.style.pointerEvents='none'; }
+  document.getElementById('mainApp').style.display='block';
+  var badge = document.createElement('div');
+  badge.textContent = '체험판';
+  badge.style.cssText = 'position:fixed;top:70px;right:12px;background:#3B82F6;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;z-index:9999;pointer-events:none;';
+  document.body.appendChild(badge);
+  renderAll();
 }
 
 // ── 잠금 해제 ──
@@ -2489,6 +2504,9 @@ function init(){
   initTheme();
   initYearSelects();
   initTabDrag();
+  // 데모 모드 감지
+  if(isDemo){ startDemo(); return; }
+
   // 저장된 GAS URL로 자동 로그인
   try {
     const saved = localStorage.getItem(GAS_LS);
