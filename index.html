@@ -535,6 +535,7 @@ tr:hover td{background:rgba(59,130,246,.05);}
           <button class="sort-btn" data-sort="grade" onclick="setAllSort('grade')" style="padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;transition:all .15s">학년순</button>
         </div>
         <input class="form-input" style="width:160px;padding:6px 10px;font-size:12px" id="search-all" placeholder="🔍 이름 검색..." oninput="renderAll()">
+        <button onclick="printStudentList()" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent-h);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif;display:flex;align-items:center;gap:4px">🖨️ 출력</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -553,6 +554,7 @@ tr:hover td{background:rgba(59,130,246,.05);}
       <option value="grade">학년순</option>
       <option value="payment">수금일순</option>
     </select>
+    <button onclick="printByGroup('teacher')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent-h);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🖨️ 출력</button>
   </div>
   <div id="teacher-panels"></div>
 </div>
@@ -566,21 +568,30 @@ tr:hover td{background:rgba(59,130,246,.05);}
       <option value="grade">학년순</option>
       <option value="payment">수금일순</option>
     </select>
+    <button onclick="printByGroup('subject')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent-h);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🖨️ 출력</button>
   </div>
   <div id="subject-panels"></div>
 </div>
 
 <!-- ▸ 학교별 -->
 <div class="tab-panel" id="tab-school">
-  <div class="school-search-wrap">
-    <span class="school-search-icon">🔍</span>
-    <input id="school-search" placeholder="학교 검색..." oninput="renderBySchool()">
+  <div style="display:flex;align-items:center;gap:8px;padding:14px 0 10px;flex-wrap:wrap">
+    <div class="school-search-wrap">
+      <span class="school-search-icon">🔍</span>
+      <input id="school-search" placeholder="학교 검색..." oninput="renderBySchool()">
+    </div>
+    <button onclick="printByGroup('school')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent-h);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🖨️ 출력</button>
   </div>
   <div id="school-panels"></div>
 </div>
 
 <!-- ▸ 학년별 -->
-<div class="tab-panel" id="tab-grade"><div id="grade-panels"></div></div>
+<div class="tab-panel" id="tab-grade">
+  <div style="padding:14px 0 10px">
+    <button onclick="printByGroup('grade')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:none;color:var(--accent-h);font-size:11px;font-weight:600;cursor:pointer;font-family:'Noto Sans KR',sans-serif">🖨️ 출력</button>
+  </div>
+  <div id="grade-panels"></div>
+</div>
 
 <!-- ▸ 휴회 처리 (우측 패널로 이동) -->
 
@@ -935,9 +946,145 @@ function updateStatsRow(){
 }
 
 // ================================================================
-// ================================================================
-// TAB: 전체 명단 (정렬 선택 가능)
-// ================================================================
+// ── 공통 출력 HTML 생성 ──
+function makePrintHTML(title, subtitle, groups){
+  const branchName=document.getElementById('branch-name')?.textContent||'학원';
+  const today=nowStr();
+  const totalCount=groups.reduce((a,g)=>a+g.students.length,0);
+
+  const groupHtml=groups.map(g=>`
+    <div class="group">
+      <div class="group-title">${g.label} <span class="group-count">${g.students.length}명</span></div>
+      <table>
+        <thead><tr><th class="th-num">#</th><th>이름</th><th>학교</th><th>학년</th><th class="th-note">비고</th></tr></thead>
+        <tbody>
+          ${g.students.map((s,i)=>{
+            const gc=s.grade.startsWith('초')?'grade-e':s.grade.startsWith('중')?'grade-m':'grade-h';
+            return `<tr>
+              <td class="td-num">${i+1}</td>
+              <td class="td-name">${s.name}</td>
+              <td>${s.school}</td>
+              <td class="td-grade"><span class="${gc}">${s.grade}</span></td>
+              <td class="td-note"></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`).join('');
+
+  return `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8">
+<title>${branchName} ${title}</title>
+<style>
+  @media print{@page{margin:12mm 10mm;size:A4 portrait}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.group{page-break-inside:avoid}}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;font-size:11px;color:#1e293b;background:#fff;padding:18px}
+  .header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;border-bottom:2px solid #1e3a8a;padding-bottom:8px}
+  .title{font-size:18px;font-weight:800;color:#1e3a8a}
+  .subtitle{font-size:11px;color:#334155;margin-top:3px}
+  .meta{font-size:10px;color:#64748b;text-align:right;line-height:1.8}
+  .group{margin-bottom:14px}
+  .group-title{font-size:12px;font-weight:700;color:#1e3a8a;background:#eef2ff;padding:5px 10px;border-left:4px solid #1e3a8a;margin-bottom:3px;display:flex;align-items:center;gap:8px}
+  .group-count{font-size:10px;font-weight:500;color:#64748b}
+  table{width:100%;border-collapse:collapse}
+  thead tr{background:#1e3a8a;color:#fff}
+  thead th{padding:6px 8px;font-size:10px;font-weight:700;text-align:center;border:1px solid #1e3a8a}
+  tbody tr:nth-child(even){background:#f8faff}
+  tbody td{padding:6px 8px;border:1px solid #d1daea;font-size:11px;vertical-align:middle}
+  .th-num,.td-num{width:28px;text-align:center;color:#94a3b8}
+  .td-name{font-weight:700}
+  .td-grade{text-align:center}
+  .th-note,.td-note{width:80px}
+  .grade-e{color:#059669;background:#e1f5ee;border-radius:3px;padding:1px 5px}
+  .grade-m{color:#2563eb;background:#dbeafe;border-radius:3px;padding:1px 5px}
+  .grade-h{color:#9333ea;background:#f3e8ff;border-radius:3px;padding:1px 5px}
+  .footer{margin-top:8px;display:flex;justify-content:space-between;font-size:10px;color:#94a3b8}
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="title">📋 ${branchName} ${title}</div>
+    ${subtitle?`<div class="subtitle">${subtitle}</div>`:''}
+  </div>
+  <div class="meta">출력일: ${today}<br>총 ${totalCount}명</div>
+</div>
+${groupHtml}
+<div class="footer"><span>${branchName}</span><span>${today} 출력</span></div>
+<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}}<\/script>
+</body></html>`;
+}
+
+function printFromBtn(btn){
+  try{
+    const title=btn.dataset.ptitle||'원생 명단';
+    const label=btn.dataset.plabel||'';
+    const rows=JSON.parse(btn.dataset.prows||'[]');
+    printSingleGroup(title, label, rows);
+  }catch(e){
+    alert('출력 오류: '+e.message);
+  }
+}
+
+function printSingleGroup(title, groupLabel, studentList){
+  const html=makePrintHTML(title, '', [{label:groupLabel, students:studentList}]);
+  const w=window.open('','_blank','width=800,height=900');
+  w.document.write(html); w.document.close();
+}
+
+function printStudentList(){
+  const q=(document.getElementById('search-all')?.value||'').trim();
+  let list=[...students];
+  if(q) list=list.filter(s=>s.name.includes(q));
+  list=sortStudents(list, allSortMode);
+  const sortLabel={payment:'수금일순',name:'ㄱㄴㄷ순',grade:'학년순'}[allSortMode]||'';
+  const subtitle=`정렬: ${sortLabel}${q?` · 검색: "${q}"`:''}`;
+  const html=makePrintHTML('전체 원생 명단', subtitle, [{label:'전체', students:list}]);
+  const w=window.open('','_blank','width=800,height=900');
+  w.document.write(html); w.document.close();
+}
+
+function printByGroup(type){
+  let groups=[];
+  let title='';
+  if(type==='teacher'){
+    title='강사별 원생 명단';
+    const sortMode=document.getElementById('teacher-sort')?.value||'name';
+    const map={};
+    students.forEach(s=>{
+      const tSet=new Set((s.subjects||[]).map(sub=>(s.subjectTeachers||{})[sub]||s.teacher).filter(Boolean));
+      tSet.forEach(t=>{ if(!map[t]) map[t]=[]; map[t].push(s); });
+    });
+    groups=Object.keys(map).sort((a,b)=>a.localeCompare(b,'ko')).map(t=>({
+      label:'👩‍🏫 '+t, students:sortStudents(map[t],sortMode)
+    }));
+  } else if(type==='subject'){
+    title='과목별 원생 명단';
+    const sortMode=document.getElementById('subject-sort')?.value||'name';
+    const map={};
+    students.forEach(s=>{ (s.subjects||[]).forEach(sub=>{ if(!map[sub]) map[sub]=[]; map[sub].push(s); }); });
+    const ordered=[...SUBJ_ORDER.filter(k=>map[k]),...Object.keys(map).filter(k=>!SUBJ_ORDER.includes(k)).sort((a,b)=>a.localeCompare(b,'ko'))];
+    groups=ordered.map(k=>({ label:'📚 '+k, students:sortStudents(map[k],sortMode) }));
+  } else if(type==='school'){
+    title='학교별 원생 명단';
+    const map={};
+    students.forEach(s=>{ if(!map[s.school]) map[s.school]=[]; map[s.school].push(s); });
+    groups=Object.keys(map).sort((a,b)=>a.localeCompare(b,'ko')).map(sc=>({
+      label:'🏫 '+sc,
+      students:[...map[sc]].sort((a,b)=>{ const d=gradeOrder(a.grade)-gradeOrder(b.grade); return d!==0?d:a.name.localeCompare(b.name,'ko'); })
+    }));
+  } else if(type==='grade'){
+    title='학년별 원생 명단';
+    const map={};
+    students.forEach(s=>{ if(!map[s.grade]) map[s.grade]=[]; map[s.grade].push(s); });
+    groups=GRADE_ORDER.filter(g=>map[g]).map(g=>({
+      label:'🎒 '+g,
+      students:[...map[g]].sort((a,b)=>a.school.localeCompare(b.school,'ko')||a.name.localeCompare(b.name,'ko'))
+    }));
+  }
+  if(!groups.length){ alert('출력할 데이터가 없습니다.'); return; }
+  const html=makePrintHTML(title,'',groups);
+  const w=window.open('','_blank','width=800,height=900');
+  w.document.write(html); w.document.close();
+}
+
 let allSortMode = 'payment'; // payment | name | grade
 
 function paymentDay(p){
@@ -1277,6 +1424,8 @@ function renderBySchool(){
         </div>
         ${cats[cat].map(school=>{
           const sid='sch-'+school.replace(/\s/g,'_');
+          const schRows=[...groups[school]].sort((a,b)=>{const d=gradeOrder(a.grade)-gradeOrder(b.grade);return d!==0?d:a.name.localeCompare(b.name,'ko');});
+          const schPRows=schRows.map(s=>({name:s.name,school:s.school,grade:s.grade}));
           return `<div class="accordion-item">
             <div class="accordion-header" onclick="toggleAccordion('${sid}')">
               <div class="accordion-title">
@@ -1284,6 +1433,10 @@ function renderBySchool(){
               </div>
               <div class="accordion-right">
                 <span class="badge bb">${groups[school].length}명</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px"
+                  data-ptitle="학교별 원생 명단" data-plabel="🏫 ${school}"
+                  data-prows='${JSON.stringify(schPRows).replace(/'/g,"&#39;")}'
+                  onclick="event.stopPropagation();printFromBtn(this)">🖨️</button>
                 <span class="accordion-arrow" id="acc-arrow-${sid}">▼</span>
               </div>
             </div>
@@ -1320,11 +1473,17 @@ function renderByGrade(){
         </div>
         ${cats[cat].filter(g=>groups[g]).map(grade=>{
           const gid='gr-'+grade;
+          const grRows=[...groups[grade]].sort((a,b)=>a.school.localeCompare(b.school,'ko')||a.name.localeCompare(b.name,'ko'));
+          const grPRows=grRows.map(s=>({name:s.name,school:s.school,grade:s.grade}));
           return `<div class="accordion-item">
             <div class="accordion-header" onclick="toggleAccordion('${gid}')">
               <div class="accordion-title"><span class="tag ${gradeTag(grade)}">${grade}</span></div>
               <div class="accordion-right">
                 <span class="badge bb">${groups[grade].length}명</span>
+                <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px"
+                  data-ptitle="학년별 원생 명단" data-plabel="🎒 ${grade}"
+                  data-prows='${JSON.stringify(grPRows).replace(/'/g,"&#39;")}'
+                  onclick="event.stopPropagation();printFromBtn(this)">🖨️</button>
                 <span class="accordion-arrow" id="acc-arrow-${gid}">▼</span>
               </div>
             </div>
@@ -1581,11 +1740,16 @@ function renderByTeacher(){
     ${keys.map(t=>{
       const tid='tch-'+t.replace(/\s/g,'_');
       const rows=sortStudents([...groups[t]], sortMode);
+      const tRows=rows.map(s=>({name:s.name,school:s.school,grade:s.grade}));
       return `<div class="accordion-item">
         <div class="accordion-header" onclick="toggleAccordion('${tid}')">
           <div class="accordion-title">👩‍🏫 ${t}</div>
           <div class="accordion-right">
             <span class="badge bb">${rows.length}명</span>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px"
+              data-ptitle="강사별 원생 명단" data-plabel="👩‍🏫 ${t}"
+              data-prows='${JSON.stringify(tRows).replace(/'/g,"&#39;")}'
+              onclick="event.stopPropagation();printFromBtn(this)">🖨️</button>
             <span class="accordion-arrow" id="acc-arrow-${tid}">▼</span>
           </div>
         </div>
@@ -1636,11 +1800,16 @@ function renderBySubject(){
     ${ordered.map(k=>{
       const sid2='subj-'+k;
       const rows=sortStudents([...groups[k]], sortMode);
+      const kRows=rows.map(s=>({name:s.name,school:s.school,grade:s.grade}));
       return `<div class="accordion-item">
         <div class="accordion-header" onclick="toggleAccordion('${sid2}')">
           <div class="accordion-title"><span class="chip ${SUBJ_COLORS[k]||'chip-etc'}" style="font-size:13px;padding:3px 10px">${k}</span></div>
           <div class="accordion-right">
             <span class="badge bb">${rows.length}명</span>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px"
+              data-ptitle="과목별 원생 명단" data-plabel="📚 ${k}"
+              data-prows='${JSON.stringify(kRows).replace(/'/g,"&#39;")}'
+              onclick="event.stopPropagation();printFromBtn(this)">🖨️</button>
             <span class="accordion-arrow" id="acc-arrow-${sid2}">▼</span>
           </div>
         </div>
