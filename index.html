@@ -2468,13 +2468,30 @@ function init(){
   initTheme();
   initYearSelects();
   initTabDrag();
-  // 저장된 GAS URL로 자동 로그인
+  // 저장된 GAS URL로 자동 로그인 (클라우드 먼저 받고 화면 열기)
   try {
     const saved = localStorage.getItem(GAS_LS);
     if(saved){
       document.getElementById('lockInp').value = saved;
-      document.getElementById('lockBtn').disabled = false;
-      tryUnlock();
+      const btn = document.getElementById('lockBtn');
+      btn.disabled = true; btn.textContent = '연결 중…';
+      document.getElementById('lockErr').style.display = 'none';
+      gasUrl = saved;
+      cloudLoad(function(ok, data){
+        if(ok){
+          try{ localStorage.setItem(GAS_LS, saved); }catch(e){}
+          applyCloudData(data);
+          const ls = document.getElementById('lockScreen');
+          ls.style.display = 'none'; ls.style.pointerEvents = 'none';
+          document.getElementById('mainApp').style.display = 'block';
+          setCloud('ok','구글 시트 연결됨 ('+students.length+'명)');
+          renderAll();
+        } else {
+          gasUrl = '';
+          btn.disabled = false; btn.textContent = '접속하기';
+          document.getElementById('lockErr').style.display = 'block';
+        }
+      });
     }
   } catch(e) {}
 }
