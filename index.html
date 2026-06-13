@@ -2375,23 +2375,32 @@ function cloudSaveStudent(s){
   setCloud('ing','저장 중…');
   gasPost({ action:'saveStudent', data:s }, function(ok){
     setCloud(ok?'ok':'err', ok?('저장됨 '+new Date().toLocaleTimeString()):'저장 실패');
+    if(ok) renderCurrent(); // 저장 후 화면 반영
   });
 }
 function cloudDeleteStudent(id){
   if(!gasUrl) return;
-  gasPost({ action:'deleteStudent', id:id }, null);
+  gasPost({ action:'deleteStudent', id:id }, function(ok){
+    if(ok) renderCurrent();
+  });
 }
 function cloudSaveScore(sid, year, subj, exam, val){
   if(!gasUrl) return;
-  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }}, null);
+  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }}, function(ok){
+    if(ok) renderCurrent();
+  });
 }
 function cloudSaveLeave(leaveData){
   if(!gasUrl) return;
-  gasPost({ action:'saveLeave', data:leaveData }, null);
+  gasPost({ action:'saveLeave', data:leaveData }, function(ok){
+    if(ok) renderCurrent();
+  });
 }
 function cloudDeleteLeave(id){
   if(!gasUrl) return;
-  gasPost({ action:'deleteLeave', id:id }, null);
+  gasPost({ action:'deleteLeave', id:id }, function(ok){
+    if(ok) renderCurrent();
+  });
 }
 function cloudSaveLog(logData){
   if(!gasUrl) return;
@@ -2432,12 +2441,24 @@ function tryUnlock(){
   });
 }
 
+// 현재 활성 탭 렌더
+function renderCurrent(){
+  const active = document.querySelector('.tab-btn.active');
+  const tabId  = active ? active.dataset.tab : 'tab-all';
+  renderTab(tabId || 'tab-all');
+}
+
 // ── 동기화 ──
 function doSync(){
   if(!gasUrl) return;
   setCloud('ing','동기화 중…');
   cloudLoad(function(ok, data){
-    if(ok&&data){ applyCloudData(data); renderAll(); setCloud('ok','동기화 완료 '+new Date().toLocaleTimeString()); }
+    if(ok&&data){
+      applyCloudData(data);
+      renderCurrent(); // 현재 탭 기준으로 렌더
+      setCloud('ok','동기화 완료 '+new Date().toLocaleTimeString());
+      showToast && showToast('🔄 동기화 완료!');
+    }
     else { setCloud('err','동기화 실패'); }
   });
 }
