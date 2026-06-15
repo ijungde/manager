@@ -2378,15 +2378,28 @@ function applyCloudData(data){
 function cloudSaveStudent(s){
   if(!gasUrl||isDemo) return;
   setCloud('ing','저장 중…');
+  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
   gasPost({ action:'saveStudent', data:s }, function(ok){
-    setCloud(ok?'ok':'err', ok?('저장됨 '+new Date().toLocaleTimeString()):'저장 실패');
-    if(ok) renderCurrent(); // 저장 후 화면 반영
+    if(ok){
+      var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
+      renderCurrent();
+    } else {
+      setCloud('err','저장 실패');
+    }
   });
 }
 function cloudDeleteStudent(id){
   if(!gasUrl) return;
+  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
   gasPost({ action:'deleteStudent', id:id }, function(ok){
-    if(ok) renderCurrent();
+    if(ok){
+      var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
+      renderCurrent();
+    }
   });
 }
 function cloudSaveScore(sid, year, subj, exam, val){
@@ -2403,19 +2416,38 @@ function cloudSaveScore(sid, year, subj, exam, val){
 }
 function cloudSaveLeave(leaveData){
   if(!gasUrl) return;
+  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
   gasPost({ action:'saveLeave', data:leaveData }, function(ok){
-    if(ok) renderCurrent();
+    if(ok){
+      var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
+      renderCurrent();
+    }
   });
 }
 function cloudDeleteLeave(id){
   if(!gasUrl) return;
+  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
   gasPost({ action:'deleteLeave', id:id }, function(ok){
-    if(ok) renderCurrent();
+    if(ok){
+      var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
+      renderCurrent();
+    }
   });
 }
 function cloudSaveLog(logData){
   if(!gasUrl) return;
-  gasPost({ action:'saveChangeLog', data:logData }, null);
+  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
+  var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  gasPost({ action:'saveChangeLog', data:logData }, function(ok){
+    if(ok){
+      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
+    }
+  });
 }
 
 // ── 변경이력 기록 (시트에도 저장) ──
