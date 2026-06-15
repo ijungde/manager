@@ -353,6 +353,7 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <div class="lock-icon">🔒</div>
     <div class="lock-title">인증이 필요합니다</div>
     <div class="lock-desc">이 서비스는 승인된 원만 사용할 수 있습니다.<br>관리자에게 연결 URL을 받아 입력해주세요.</div>
+    <input class="lock-inp" id="saverInp" placeholder="이름 입력 (예: 김선생)" style="margin-bottom:8px;" oninput="saveSaverName(this.value)">
     <input class="lock-inp" id="lockInp" placeholder="연결 URL 입력…" oninput="document.getElementById('lockBtn').disabled=!this.value.trim()">
     <button class="lock-btn" id="lockBtn" onclick="tryUnlock()" disabled>접속하기</button>
     <div class="lock-err" id="lockErr">연결에 실패했습니다. URL을 다시 확인해주세요.</div>
@@ -1996,7 +1997,7 @@ function buildScoreTable(sid, year, subjs, subjectTeachers){
         const v=getScore(sid,year,subj,exam);
         return `<td style="padding:6px 8px;border-bottom:1px solid rgba(30,52,96,.4);text-align:center">
           <input class="score-input ${scoreColor(v)}" type="number" min="0" max="100" value="${v}" placeholder="-"
-            oninput="setScore(${sid},${year},'${subj}','${exam}',this.value);this.className='score-input '+scoreColor(this.value)"
+            oninput="this.className='score-input '+scoreColor(this.value)" onblur="setScore(${sid},${year},'${subj}','${exam}',this.value)"
             onfocus="this.select()">
         </td>`;
       }).join('')}
@@ -2363,6 +2364,10 @@ function applyCloudData(data){
       badge.style.display='block';
     }
   }
+  // 마지막 저장자 표시
+  if(data.lastSavedBy){
+    setCloud('ok', '마지막 저장: '+data.lastSavedBy);
+  }
   try {
     localStorage.setItem(GAS_LS, gasUrl);
     localStorage.setItem('ams_nextid', String(nextId));
@@ -2371,7 +2376,7 @@ function applyCloudData(data){
 
 // ── 학생 저장 (추가/수정) ──
 function cloudSaveStudent(s){
-  if(!gasUrl) return;
+  if(!gasUrl||isDemo) return;
   setCloud('ing','저장 중…');
   gasPost({ action:'saveStudent', data:s }, function(ok){
     setCloud(ok?'ok':'err', ok?('저장됨 '+new Date().toLocaleTimeString()):'저장 실패');
@@ -2385,9 +2390,15 @@ function cloudDeleteStudent(id){
   });
 }
 function cloudSaveScore(sid, year, subj, exam, val){
-  if(!gasUrl) return;
+  if(!gasUrl||isDemo) return;
+  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
   gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }}, function(ok){
-    if(ok) renderCurrent();
+    if(ok){
+      var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
+      renderCurrent();
+    }
   });
 }
 function cloudSaveLeave(leaveData){
@@ -2415,6 +2426,46 @@ function addChangeLog(sid, field, prev, next){
   changeLog.unshift(entry);
   if(changeLog.length>1000) changeLog=changeLog.slice(0,1000);
   cloudSaveLog(entry);
+}
+
+// ── 자동 저장 (5분 미입력 시) ──
+var _autoSaveTimer = null;
+function resetAutoSaveTimer() {
+  if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(function(){
+    // 포커스된 입력칸 blur 처리 (저장 트리거)
+    var active = document.activeElement;
+    if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+      active.blur();
+    }
+    // 저장 상태 표시
+    setCloud('ing', '자동 저장 중…');
+    setTimeout(function(){ setCloud('ok', '자동 저장 완료'); }, 1500);
+  }, 5 * 60 * 1000); // 5분
+}
+
+// ── 저장자 이름 관리 ──
+function saveSaverName(val){
+  try{ localStorage.setItem('ams_saver_name', val.trim()); }catch(e){}
+}
+
+// ── 데모 모드 ──
+var isDemo = new URLSearchParams(location.search).get('demo') !== null;
+
+function startDemo() {
+  gasUrl = '';
+  // localStorage URL 제거 (이전 URL 안 보이게)
+  try{ localStorage.removeItem(GAS_LS); }catch(e){}
+  const ls = document.getElementById('lockScreen');
+  if(ls){ ls.style.display='none'; ls.style.pointerEvents='none'; }
+  document.getElementById('mainApp').style.display='block';
+  // 데모 워터마크
+  var badge = document.createElement('div');
+  badge.id = 'demoBadge';
+  badge.textContent = '체험판';
+  badge.style.cssText = 'position:fixed;top:70px;right:12px;background:#3B82F6;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;z-index:9999;pointer-events:none;';
+  document.body.appendChild(badge);
+  renderAll();
 }
 
 // ── 잠금 해제 ──
@@ -2489,6 +2540,21 @@ function init(){
   initTheme();
   initYearSelects();
   initTabDrag();
+  // 저장된 이름 불러오기
+  try{
+    var savedName = localStorage.getItem('ams_saver_name');
+    if(savedName){ var ni=document.getElementById('saverInp'); if(ni) ni.value=savedName; }
+  }catch(e){}
+
+  // 데모 모드 감지
+  if(isDemo){ startDemo(); return; }
+
+  // 자동 저장 타이머 - 입력/클릭 시 리셋
+  ['input','change','click','keydown'].forEach(function(evt){
+    document.addEventListener(evt, resetAutoSaveTimer, {passive:true});
+  });
+  resetAutoSaveTimer(); // 시작
+
   // 저장된 GAS URL로 자동 로그인
   try {
     const saved = localStorage.getItem(GAS_LS);
