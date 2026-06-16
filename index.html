@@ -2558,10 +2558,11 @@ function tryUnlock(){
     btn.disabled=false; btn.textContent='접속하기';
     if(ok){
       try{ localStorage.setItem(GAS_LS,url); }catch(e){}
-      applyCloudData(data);
+      // mainApp 먼저 표시 후 데이터 적용 (setLastSaved 정상 렌더를 위해)
       const ls=document.getElementById('lockScreen');
       ls.style.display='none'; ls.style.pointerEvents='none';
       document.getElementById('mainApp').style.display='block';
+      applyCloudData(data);
       setCloud('ok','구글 시트 연결됨 ('+students.length+'명)');
       renderAll();
     } else {
