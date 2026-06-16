@@ -382,11 +382,14 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <div class="hbadge">휴회 <strong class="c3" id="hdr-leave">0</strong></div>
     <button class="btn btn-warn" style="padding:5px 10px;font-size:12px;border-radius:7px" onclick="manualGradeUp()" title="학년 진급 처리">🎓 진급</button>
     <!-- 클라우드 상태 -->
-    <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 10px;">
-      <div class="cloud-dot" id="cloudDot" style="flex-shrink:0"></div>
-      <div class="cloud-status" id="cloudStatus" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis">연결 중...</div>
-      <button onclick="doSync()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="동기화">🔄</button>
-      <button onclick="doDisconn()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="연결 해제">🔌</button>
+    <div style="display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 10px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div class="cloud-dot" id="cloudDot" style="flex-shrink:0"></div>
+        <div class="cloud-status" id="cloudStatus" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">연결 중...</div>
+        <button onclick="doSync()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="동기화">🔄</button>
+        <button onclick="doDisconn()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="연결 해제">🔌</button>
+      </div>
+      <div id="lastSavedStatus" style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;display:none;"></div>
     </div>
     <!-- 테마 토글 -->
     <div class="theme-toggle-wrap">
@@ -2046,12 +2049,40 @@ function openScoreModalForArchive(sid){
 function reloadScoreModal(){
   if(!_scoreSid) return;
   const year=parseInt(document.getElementById('modal-score-year').value);
+  const curY=new Date().getFullYear();
   const s=students.find(x=>x.id===_scoreSid);
-  const l=leaveHistory.filter(x=>x.id===_scoreSid);
+  const l=leaveHistory.filter(x=>x.studentId===_scoreSid);
   const subjects=s?(s.subjects||[]):[...new Set(l.flatMap(x=>x.allSubjects||x.leaveSubjects||[]))];
   const subjectTeachers=s?(s.subjectTeachers||{}):Object.assign({},...l.map(x=>x.subjectTeachers||{}));
-  document.getElementById('modal-score-body').innerHTML=
-    buildScoreTable(_scoreSid, year, subjects, subjectTeachers);
+
+  // 현재 연도는 기존 데이터 사용, 이전 연도는 GAS에서 불러오기
+  if(year === curY){
+    document.getElementById('modal-score-body').innerHTML=
+      buildScoreTable(_scoreSid, year, subjects, subjectTeachers);
+  } else {
+    // 캐시 확인
+    if(scores[_scoreSid] && scores[_scoreSid][year]){
+      document.getElementById('modal-score-body').innerHTML=
+        buildScoreTable(_scoreSid, year, subjects, subjectTeachers);
+      return;
+    }
+    // GAS에서 해당 연도 불러오기
+    document.getElementById('modal-score-body').innerHTML=
+      '<div style="padding:20px;text-align:center;color:var(--text3)">⏳ '+year+'년 성적 불러오는 중…</div>';
+    loadScoresByYear(year, function(ok, yearScores){
+      if(ok && yearScores){
+        // 불러온 데이터를 scores에 병합 (캐시)
+        Object.keys(yearScores).forEach(function(sid){
+          if(!scores[sid]) scores[sid]={};
+          Object.keys(yearScores[sid]).forEach(function(yr){
+            scores[sid][yr]=yearScores[sid][yr];
+          });
+        });
+      }
+      document.getElementById('modal-score-body').innerHTML=
+        buildScoreTable(_scoreSid, year, subjects, subjectTeachers);
+    });
+  }
 }
 
 // ================================================================
@@ -2327,6 +2358,11 @@ function jsonpLoad(url, cb){
   setTimeout(function(){ if(window[nm]){ delete window[nm]; const s=document.getElementById(nm); if(s)s.remove(); cb('timeout',null); } },10000);
 }
 function cloudLoad(cb){ jsonpLoad(gasUrl, function(e,d){ cb(!e&&d&&d.ok, d?d.data:null); }); }
+function loadScoresByYear(year, cb){
+  jsonpLoad(gasUrl+'?action=getScoresByYear&year='+year, function(e,d){
+    cb(!e&&d&&d.ok, d?d.scores:null);
+  });
+}
 
 // ── POST (액션 기반) ──
 function gasPost(payload, cb){
@@ -2343,6 +2379,17 @@ function setCloud(state, msg){
   if(!dot||!status) return;
   dot.className='cloud-dot'+(state==='ing'?' ing':state==='err'?' err':'');
   status.textContent=msg;
+}
+
+function setLastSaved(text){
+  const el=document.getElementById('lastSavedStatus');
+  if(!el) return;
+  if(text){
+    el.textContent='✏️ 마지막 저장: '+text;
+    el.style.display='block';
+  } else {
+    el.style.display='none';
+  }
 }
 
 // ── 데이터 적용 ──
@@ -2364,9 +2411,9 @@ function applyCloudData(data){
       badge.style.display='block';
     }
   }
-  // 마지막 저장자 표시
+  // 마지막 저장자 별도 표시 (연결 상태와 분리)
   if(data.lastSavedBy){
-    setCloud('ok', '마지막 저장: '+data.lastSavedBy);
+    setLastSaved(data.lastSavedBy);
   }
   try {
     localStorage.setItem(GAS_LS, gasUrl);
@@ -2382,7 +2429,7 @@ function cloudSaveStudent(s){
   gasPost({ action:'saveStudent', data:s }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
       gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     } else {
@@ -2396,7 +2443,7 @@ function cloudDeleteStudent(id){
   gasPost({ action:'deleteStudent', id:id }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
       gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
@@ -2408,7 +2455,7 @@ function cloudSaveScore(sid, year, subj, exam, val){
   gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }}, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
       gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
@@ -2420,7 +2467,7 @@ function cloudSaveLeave(leaveData){
   gasPost({ action:'saveLeave', data:leaveData }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
       gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
@@ -2432,7 +2479,7 @@ function cloudDeleteLeave(id){
   gasPost({ action:'deleteLeave', id:id }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
       gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
@@ -2444,7 +2491,7 @@ function cloudSaveLog(logData){
   var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   gasPost({ action:'saveChangeLog', data:logData }, function(ok){
     if(ok){
-      setCloud('ok','마지막 저장: '+savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
       gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
     }
   });
