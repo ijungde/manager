@@ -353,7 +353,6 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <div class="lock-icon">🔒</div>
     <div class="lock-title">인증이 필요합니다</div>
     <div class="lock-desc">이 서비스는 승인된 원만 사용할 수 있습니다.<br>관리자에게 연결 URL을 받아 입력해주세요.</div>
-    <input class="lock-inp" id="saverInp" placeholder="이름 입력 (예: 김선생)" style="margin-bottom:8px;" oninput="saveSaverName(this.value)">
     <input class="lock-inp" id="lockInp" placeholder="연결 URL 입력…" oninput="document.getElementById('lockBtn').disabled=!this.value.trim()">
     <button class="lock-btn" id="lockBtn" onclick="tryUnlock()" disabled>접속하기</button>
     <div class="lock-err" id="lockErr">연결에 실패했습니다. URL을 다시 확인해주세요.</div>
@@ -382,14 +381,11 @@ tr:hover td{background:rgba(59,130,246,.05);}
     <div class="hbadge">휴회 <strong class="c3" id="hdr-leave">0</strong></div>
     <button class="btn btn-warn" style="padding:5px 10px;font-size:12px;border-radius:7px" onclick="manualGradeUp()" title="학년 진급 처리">🎓 진급</button>
     <!-- 클라우드 상태 -->
-    <div style="display:flex;flex-direction:column;gap:2px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 10px;">
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div class="cloud-dot" id="cloudDot" style="flex-shrink:0"></div>
-        <div class="cloud-status" id="cloudStatus" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">연결 중...</div>
-        <button onclick="doSync()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="동기화">🔄</button>
-        <button onclick="doDisconn()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="연결 해제">🔌</button>
-      </div>
-      <div id="lastSavedStatus" style="font-size:10px;color:rgba(255,255,255,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;display:none;"></div>
+    <div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:5px 10px;">
+      <div class="cloud-dot" id="cloudDot" style="flex-shrink:0"></div>
+      <div class="cloud-status" id="cloudStatus" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis">연결 중...</div>
+      <button onclick="doSync()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="동기화">🔄</button>
+      <button onclick="doDisconn()" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0;line-height:1" title="연결 해제">🔌</button>
     </div>
     <!-- 테마 토글 -->
     <div class="theme-toggle-wrap">
@@ -2381,16 +2377,6 @@ function setCloud(state, msg){
   status.textContent=msg;
 }
 
-function setLastSaved(text){
-  const el=document.getElementById('lastSavedStatus');
-  if(!el) return;
-  if(text){
-    el.textContent='✏️ 마지막 저장: '+text;
-    el.style.display='block';
-  } else {
-    el.style.display='none';
-  }
-}
 
 // ── 데이터 적용 ──
 function applyCloudData(data){
@@ -2411,10 +2397,7 @@ function applyCloudData(data){
       badge.style.display='block';
     }
   }
-  // 마지막 저장자 별도 표시 (연결 상태와 분리)
-  if(data.lastSavedBy){
-    setLastSaved(data.lastSavedBy);
-  }
+
   try {
     localStorage.setItem(GAS_LS, gasUrl);
     localStorage.setItem('ams_nextid', String(nextId));
@@ -2425,11 +2408,10 @@ function applyCloudData(data){
 function cloudSaveStudent(s){
   if(!gasUrl||isDemo) return;
   setCloud('ing','저장 중…');
-  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'saveStudent', data:s, savedBy:savedBy }, function(ok){
+  gasPost({ action:'saveStudent', data:s }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr);
       renderCurrent();
     } else {
       setCloud('err','저장 실패');
@@ -2438,55 +2420,50 @@ function cloudSaveStudent(s){
 }
 function cloudDeleteStudent(id){
   if(!gasUrl) return;
-  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'deleteStudent', id:id, savedBy:savedBy }, function(ok){
+  gasPost({ action:'deleteStudent', id:id }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr);
       renderCurrent();
     }
   });
 }
 function cloudSaveScore(sid, year, subj, exam, val){
   if(!gasUrl||isDemo) return;
-  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }, savedBy:savedBy }, function(ok){
+  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val } }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr);
       renderCurrent();
     }
   });
 }
 function cloudSaveLeave(leaveData){
   if(!gasUrl) return;
-  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'saveLeave', data:leaveData, savedBy:savedBy }, function(ok){
+  gasPost({ action:'saveLeave', data:leaveData }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr);
       renderCurrent();
     }
   });
 }
 function cloudDeleteLeave(id){
   if(!gasUrl) return;
-  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'deleteLeave', id:id, savedBy:savedBy }, function(ok){
+  gasPost({ action:'deleteLeave', id:id }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr);
       renderCurrent();
     }
   });
 }
 function cloudSaveLog(logData){
   if(!gasUrl) return;
-  var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
   var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   gasPost({ action:'saveChangeLog', data:logData }, function(ok){
     if(ok){
-      setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
+      setCloud('ok','저장됨 '+timeStr);
     }
   });
 }
@@ -2515,11 +2492,6 @@ function resetAutoSaveTimer() {
     setCloud('ing', '자동 저장 중…');
     setTimeout(function(){ setCloud('ok', '자동 저장 완료'); }, 1500);
   }, 5 * 60 * 1000); // 5분
-}
-
-// ── 저장자 이름 관리 ──
-function saveSaverName(val){
-  try{ localStorage.setItem('ams_saver_name', val.trim()); }catch(e){}
 }
 
 // ── 데모 모드 ──
@@ -2552,7 +2524,7 @@ function tryUnlock(){
     btn.disabled=false; btn.textContent='접속하기';
     if(ok){
       try{ localStorage.setItem(GAS_LS,url); }catch(e){}
-      // mainApp 먼저 표시 후 데이터 적용 (setLastSaved 정상 렌더를 위해)
+      // mainApp 먼저 표시 후 데이터 적용
       const ls=document.getElementById('lockScreen');
       ls.style.display='none'; ls.style.pointerEvents='none';
       document.getElementById('mainApp').style.display='block';
@@ -2614,12 +2586,6 @@ function init(){
   initTheme();
   initYearSelects();
   initTabDrag();
-  // 저장된 이름 불러오기
-  try{
-    var savedName = localStorage.getItem('ams_saver_name');
-    if(savedName){ var ni=document.getElementById('saverInp'); if(ni) ni.value=savedName; }
-  }catch(e){}
-
   // 데모 모드 감지
   if(isDemo){ startDemo(); return; }
 
