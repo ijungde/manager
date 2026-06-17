@@ -2426,11 +2426,10 @@ function cloudSaveStudent(s){
   if(!gasUrl||isDemo) return;
   setCloud('ing','저장 중…');
   var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'saveStudent', data:s }, function(ok){
+  gasPost({ action:'saveStudent', data:s, savedBy:savedBy }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
-      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     } else {
       setCloud('err','저장 실패');
@@ -2440,11 +2439,10 @@ function cloudSaveStudent(s){
 function cloudDeleteStudent(id){
   if(!gasUrl) return;
   var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'deleteStudent', id:id }, function(ok){
+  gasPost({ action:'deleteStudent', id:id, savedBy:savedBy }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
-      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
   });
@@ -2452,11 +2450,10 @@ function cloudDeleteStudent(id){
 function cloudSaveScore(sid, year, subj, exam, val){
   if(!gasUrl||isDemo) return;
   var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }}, function(ok){
+  gasPost({ action:'saveScore', data:{ studentId:sid, year:year, subject:subj, exam:exam, score:val }, savedBy:savedBy }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
-      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
   });
@@ -2464,11 +2461,10 @@ function cloudSaveScore(sid, year, subj, exam, val){
 function cloudSaveLeave(leaveData){
   if(!gasUrl) return;
   var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'saveLeave', data:leaveData }, function(ok){
+  gasPost({ action:'saveLeave', data:leaveData, savedBy:savedBy }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
-      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
   });
@@ -2476,11 +2472,10 @@ function cloudSaveLeave(leaveData){
 function cloudDeleteLeave(id){
   if(!gasUrl) return;
   var savedBy = localStorage.getItem('ams_saver_name') || '알수없음';
-  gasPost({ action:'deleteLeave', id:id }, function(ok){
+  gasPost({ action:'deleteLeave', id:id, savedBy:savedBy }, function(ok){
     if(ok){
       var timeStr = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
       setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
-      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
       renderCurrent();
     }
   });
@@ -2492,7 +2487,6 @@ function cloudSaveLog(logData){
   gasPost({ action:'saveChangeLog', data:logData }, function(ok){
     if(ok){
       setCloud('ok','저장됨 '+timeStr); setLastSaved(savedBy+' '+timeStr);
-      gasPost({ action:'updateMeta', key:'lastSavedBy', value:savedBy+' '+timeStr }, null);
     }
   });
 }
